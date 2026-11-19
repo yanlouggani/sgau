@@ -105,7 +105,10 @@ export function StudentFinancialSheet({
 
     const msg = `Bonjour ${parentName},\nITRI Academy (Centre de formation et soutien scolaire) vous informe du suivi de ${studentName} :\n- Séances consommées : ${data.cycleTracking.sessionsInCurrentCycle}/4\n- Solde à régler : ${remaining.toLocaleString("fr-FR")} DA\nMerci de vous rapprocher de notre secrétariat pour la régularisation.\nPour toute question, nous restons à votre entière disposition.`;
 
-    if (!cleanPhone) {
+    if (!cleanPhone || cleanPhone.length < 9) {
+      toast.info("Numéro parent non renseigné ou incomplet", {
+        description: "Ouverture de WhatsApp pour choisir le destinataire manuellement.",
+      });
       window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, "_blank");
       return;
     }
@@ -490,8 +493,16 @@ export function StudentFinancialSheet({
                           <TableCell className="text-xs font-black text-emerald-700">
                             {p.amount_paid.toLocaleString("fr-FR")} DA
                           </TableCell>
-                          <TableCell className="text-xs capitalize font-semibold text-slate-600">
-                            {p.payment_method}
+                          <TableCell className="text-xs font-semibold text-slate-600">
+                            {p.payment_method === "cash"
+                              ? "Espèces"
+                              : p.payment_method === "transfer" || p.payment_method === "bank_transfer"
+                              ? "Virement"
+                              : p.payment_method === "baridimob"
+                              ? "BaridiMob"
+                              : p.payment_method === "ccp"
+                              ? "CCP"
+                              : "Chèque"}
                           </TableCell>
                           <TableCell>
                             {p.status === "paid" ? (
@@ -502,9 +513,13 @@ export function StudentFinancialSheet({
                               <Badge className="bg-amber-500/10 text-amber-700 border-none text-[10px] font-bold">
                                 Partiel
                               </Badge>
-                            ) : (
+                            ) : p.status === "late" ? (
                               <Badge className="bg-red-500/10 text-red-700 border-none text-[10px] font-bold">
                                 En retard
+                              </Badge>
+                            ) : (
+                              <Badge className="bg-slate-500/10 text-slate-700 border-none text-[10px] font-bold">
+                                Impayé
                               </Badge>
                             )}
                           </TableCell>

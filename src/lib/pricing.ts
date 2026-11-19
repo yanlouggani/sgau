@@ -1,3 +1,6 @@
+import { todayLocal } from "./dates";
+import type { PaymentStatus } from "@/types/database";
+
 /**
  * Module de gestion de la tarification et des réductions (Packs Multi-Matières & Fratrie)
  * pour le centre de cours de soutien scolaire.
@@ -60,21 +63,31 @@ export function getLocalModulePricing(moduleId: string): ModulePricing {
  * Calcule automatiquement le statut de consommation d'un bloc de 4 séances
  */
 export function getSessionBlockProgress(attendedCount: number): {
-  currentSessionInBlock: number; // 1, 2, 3 ou 4
+  currentSessionInBlock: number; // 0, 1, 2, 3 ou 4
   completedBlocks: number;
   isRenewalNeeded: boolean;     // true si 4/4 consommé
   label: string;
 } {
-  const count = Math.max(0, attendedCount);
-  const currentSessionInBlock = count === 0 ? 1 : ((count - 1) % 4) + 1;
+  const count = Math.max(0, typeof attendedCount === "number" && !isNaN(attendedCount) ? attendedCount : 0);
+  const currentSessionInBlock = count === 0 ? 0 : ((count - 1) % 4) + 1;
   const completedBlocks = Math.floor(count / 4);
   const isRenewalNeeded = count > 0 && count % 4 === 0;
+  const currentBlockNum = count === 0 ? 1 : Math.floor((count - 1) / 4) + 1;
+
+  let label: string;
+  if (count === 0) {
+    label = "Aucune séance consommée (Bloc #1)";
+  } else if (isRenewalNeeded) {
+    label = `Séance 4 sur 4 terminée (Bloc #${currentBlockNum}) — Renouvellement requis`;
+  } else {
+    label = `Séance ${currentSessionInBlock} sur 4 (Bloc #${currentBlockNum})`;
+  }
 
   return {
     currentSessionInBlock,
     completedBlocks,
     isRenewalNeeded,
-    label: `Séance ${currentSessionInBlock} sur 4 (Bloc #${completedBlocks + 1})`,
+    label,
   };
 }
 
@@ -112,13 +125,15 @@ export function calculateStudentBilling(
   const isArray = Array.isArray(optionsOrModules);
   const enrolledModules = isArray ? optionsOrModules : optionsOrModules.enrolledModules || [];
   const billingType = isArray ? "monthly" : optionsOrModules.billingType || "monthly";
-  const sessionsCount = isArray ? 4 : optionsOrModules.sessionsCount ?? 4;
-  const isSibling = isArray ? isSiblingArg : optionsOrModules.isSibling ?? false;
-  const customDiscount = isArray ? 0 : optionsOrModules.customDiscount ?? 0;
+  const rawSessions = isArray ? 4 : optionsOrModules.sessionsCount ?? 4;
+  const sessionsCount = typeof rawSessions === "number" && !isNaN(rawSessions) ? rawSessions : 4;
+  const isSibling = isArray ? isSiblingArg : Boolean(optionsOrModules.isSibling);
+  const rawDiscount = isArray ? 0 : optionsOrModules.customDiscount ?? 0;
+  const customDiscount = Math.max(0, Number(rawDiscount) || 0);
 
   const count = enrolledModules.length;
 
-  if (!enrolledModules || count === 0) {
+  if (!enrolledModules || count === 0 || sessionsCount <= 0) {
     return {
       baseAmount: 0,
       baseTotal: 0,
@@ -130,8 +145,8 @@ export function calculateStudentBilling(
       customDiscountAmount: 0,
       netDue: 0,
       netAmount: 0,
-      itemCount: 0,
-      ruleLabel: "Aucune inscription active",
+      itemCount: count,
+      ruleLabel: sessionsCount <= 0 ? "0 séance facturée" : "Aucune inscription active",
     };
   }
 
@@ -139,15 +154,17 @@ export function calculateStudentBilling(
   let baseAmount = 0;
   for (const mod of enrolledModules) {
     const pricing = getLocalModulePricing(mod.id);
-    const unitPrice =
-      billingType === "monthly"
-        ? (mod.monthlyPrice || pricing.monthly_price || 3000)
-        : (mod.sessionPrice || pricing.price_per_session || 800) * 4;
-    baseAmount += unitPrice;
+    if (billingType === "per_session") {
+      const unitPrice = Number(mod.sessionPrice ?? pricing.price_per_session) || 800;
+      baseAmount += unitPrice * sessionsCount;
+    } else {
+      const unitPrice = Number(mod.monthlyPrice ?? pricing.monthly_price) || 3000;
+      baseAmount += unitPrice;
+    }
   }
 
-  // Ajustement Prorata immédiat si sessionsCount < 4
-  if (sessionsCount < 4 && sessionsCount > 0) {
+  // Ajustement Prorata pour forfait mensuel si sessionsCount !== 4
+  if (billingType === "monthly" && sessionsCount !== 4) {
     baseAmount = Math.round(baseAmount * (sessionsCount / 4));
   }
 
@@ -167,24 +184,24 @@ export function calculateStudentBilling(
   }
 
   const discountAmount = Math.round((baseAmount * packDiscountPercent) / 100);
-  let currentTotal = baseAmount - discountAmount;
+  let currentTotal = Math.max(0, baseAmount - discountAmount);
 
   // 3. Remise fratrie (-10% supplémentaire si applicable)
   let siblingDiscountAmount = 0;
   if (isSibling) {
     siblingDiscountAmount = Math.round((currentTotal * SIBLING_DISCOUNT_PERCENT) / 100);
-    currentTotal -= siblingDiscountAmount;
+    currentTotal = Math.max(0, currentTotal - siblingDiscountAmount);
   }
 
   // 4. Remise personnalisée
   let customDiscountAmount = 0;
   if (customDiscount > 0) {
     customDiscountAmount = Math.min(currentTotal, customDiscount);
-    currentTotal -= customDiscountAmount;
+    currentTotal = Math.max(0, currentTotal - customDiscountAmount);
   }
 
-  // 5. Ajout du label Prorata (le calcul a déjà été appliqué sur le baseAmount)
-  if (sessionsCount < 4 && sessionsCount > 0) {
+  // 5. Ajout du label Prorata
+  if (sessionsCount !== 4 && sessionsCount > 0) {
     ruleLabel += ` — Prorata ${sessionsCount}/4 séance(s)`;
   }
 
@@ -204,4 +221,34 @@ export function calculateStudentBilling(
     itemCount: count,
     ruleLabel,
   };
+}
+
+/**
+ * Détermine le statut d'un paiement de façon pure et prévisible
+ */
+export function computePaymentStatus(
+  amountDue: number,
+  amountPaid: number,
+  dueDate?: string
+): PaymentStatus {
+  const due = Math.max(0, Number(amountDue) || 0);
+  const paid = Math.max(0, Number(amountPaid) || 0);
+
+  // Si rien n'est dû, le statut est acquitté
+  if (due === 0) {
+    return "paid";
+  }
+
+  if (paid >= due) {
+    return "paid";
+  }
+
+  const today = todayLocal();
+  const isOverdue = Boolean(dueDate && today > dueDate);
+
+  if (paid > 0) {
+    return isOverdue ? "late" : "partial";
+  }
+
+  return isOverdue ? "late" : "unpaid";
 }

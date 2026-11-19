@@ -32,6 +32,8 @@ import {
   type SessionOccurrence,
   type SessionErrorCode,
   type SessionResult,
+  detectScheduleConflict,
+  fromDateOnly,
 } from "@/lib/session-masters";
 import { validateSessionAssignmentAction, checkScheduleConflictAction } from "@/lib/actions/schedule-actions";
 import type { TimeSlot } from "@/types/database";
@@ -144,8 +146,10 @@ function sessionToast<T>(res: SessionResult<T>, successMessage: string) {
 }
 
 function isPast(dateStr: string, time: string) {
+  if (!dateStr || !time) return false;
   const [h, m] = time.split(":").map(Number);
-  const d = new Date(dateStr + "T00:00:00");
+  if (isNaN(h) || isNaN(m)) return false;
+  const d = fromDateOnly(dateStr);
   d.setHours(h, m, 0, 0);
   return d < new Date();
 }
@@ -340,6 +344,7 @@ function DroppableGridCell({
   onSelectForMove,
   movingOccId,
   onTargetCellTap,
+  allOccurrences,
 }: {
   cellId: string;
   day: number;
@@ -354,6 +359,7 @@ function DroppableGridCell({
   onSelectForMove: (occ: SessionOccurrence) => void;
   movingOccId: string | null;
   onTargetCellTap: (day: number, slot: TimeSlot, targetDate: string) => void;
+  allOccurrences?: SessionOccurrence[];
 }) {
   const { isOver, setNodeRef } = useDroppable({
     id: cellId,
@@ -373,13 +379,35 @@ function DroppableGridCell({
       return null;
     }
 
-    // Vérifier si la cellule a déjà une séance
+    // Détection stricte multi-ressources (professeur, salle, classe)
+    const listToCheck = allOccurrences && allOccurrences.length > 0 ? allOccurrences : occurrences;
+    const check = detectScheduleConflict(
+      {
+        id: draggedOcc.id,
+        masterId: draggedOcc.masterId,
+        occurrenceDate: targetDate,
+        weekday: day,
+        startTime: slot.starttime,
+        endTime: slot.endtime,
+        professorId: draggedOcc.professorId,
+        roomId: draggedOcc.roomId,
+        groupId: draggedOcc.groupId,
+      },
+      listToCheck,
+      { excludeId: draggedOcc.id, excludeMasterId: draggedOcc.masterId }
+    );
+
+    if (check.hasConflict) {
+      return check.reason || "Conflit détecté sur ce créneau.";
+    }
+
+    // Vérifier si la cellule a déjà une séance pour ce groupe
     if (occurrences.length > 0) {
       return "Une séance est déjà programmée dans ce créneau pour ce groupe.";
     }
 
     return null;
-  }, [draggedOcc, isOver, day, slot, targetDate, occurrences]);
+  }, [draggedOcc, isOver, day, slot, targetDate, allOccurrences, occurrences]);
 
   const hasConflict = !!conflict;
 
@@ -956,6 +984,28 @@ export function ScheduleManagement({
       return;
     }
 
+    // Vérification stricte des conflits avant déplacement
+    const conflictCheck = detectScheduleConflict(
+      {
+        id: occ.id,
+        masterId: occ.masterId,
+        occurrenceDate: targetDate,
+        weekday: day,
+        startTime: slot.starttime,
+        endTime: slot.endtime,
+        professorId: occ.professorId,
+        roomId: occ.roomId,
+        groupId: occ.groupId,
+      },
+      occurrences,
+      { excludeId: occ.id, excludeMasterId: occ.masterId }
+    );
+
+    if (conflictCheck.hasConflict) {
+      toast.error("Déplacement impossible", { description: conflictCheck.reason });
+      return;
+    }
+
     // Mise à jour optimiste immédiate
     const previousOccurrences = [...occurrences];
     setOccurrences((prev) =>
@@ -1014,6 +1064,27 @@ export function ScheduleManagement({
 
     if (isPast(targetDate, slot.starttime)) {
       toast.error("Impossible de déplacer vers un créneau passé.");
+      return;
+    }
+
+    const conflictCheck = detectScheduleConflict(
+      {
+        id: occ.id,
+        masterId: occ.masterId,
+        occurrenceDate: targetDate,
+        weekday: day,
+        startTime: slot.starttime,
+        endTime: slot.endtime,
+        professorId: occ.professorId,
+        roomId: occ.roomId,
+        groupId: occ.groupId,
+      },
+      occurrences,
+      { excludeId: occ.id, excludeMasterId: occ.masterId }
+    );
+
+    if (conflictCheck.hasConflict) {
+      toast.error("Déplacement impossible", { description: conflictCheck.reason });
       return;
     }
 
@@ -1080,7 +1151,9 @@ export function ScheduleManagement({
 
     // Vérification des conflits d'emploi du temps côté serveur
     if (selectedGroup) {
+      const targetDate = mode === "edit" && target?.occurrenceDate ? target.occurrenceDate : weekdayOnOrAfter(currentWeekStart, form.day);
       const conflict = await checkScheduleConflictAction({
+        date: targetDate,
         weekday: form.day,
         startTime: slot.starttime,
         endTime: slot.endtime,
@@ -1470,6 +1543,7 @@ export function ScheduleManagement({
                                   slot={slotItem}
                                   targetDate={targetDate}
                                   occurrences={cell}
+                                  allOccurrences={occurrences}
                                   isPastCell={isPastCell}
                                   draggedOcc={activeDragOcc}
                                   onAddSession={openAdd}

@@ -37,6 +37,7 @@ import { Search, Plus, MoreHorizontal, Edit, Trash2, Loader2, ClipboardList, Ale
 import { toast } from "sonner";
 import { recordStudentPaymentAction } from "@/lib/actions/payments";
 import { todayLocal, currentMonthLocal } from "@/lib/dates";
+import { calculateEnrollmentProrata } from "@/lib/student-validation";
 import type { PaymentMethod } from "@/types/database";
 
 const DAYS_FR: Record<number, string> = {
@@ -85,7 +86,7 @@ export function EnrollmentsManagement({ initialEnrollments, students, groups }: 
   const [paymentSaving, setPaymentSaving] = useState(false);
   const [paymentBasePrice, setPaymentBasePrice] = useState(4000);
 
-  const calculatedAmountDue = (paymentBasePrice * paymentProrata) / 4;
+  const calculatedAmountDue = calculateEnrollmentProrata(paymentBasePrice, paymentProrata);
 
   const supabase = createClient();
 
@@ -191,13 +192,17 @@ export function EnrollmentsManagement({ initialEnrollments, students, groups }: 
 
       const { data: existing } = await supabase
         .from("enrollments")
-        .select("id")
+        .select("id, status")
         .eq("studentid", form.studentid)
         .eq("groupid", form.groupid);
-      const dupes = existing ?? [];
+      const dupes = (existing ?? []) as Array<{ id: string; status: string }>;
 
       if (editing) {
-        if (dupes.some((d) => d.id !== editing.id)) { toast.error("Cet étudiant est déjà inscrit dans ce groupe"); setSaving(false); return; }
+        if (dupes.some((d) => d.id !== editing.id)) {
+          toast.error("Cet étudiant est déjà inscrit dans ce groupe");
+          setSaving(false);
+          return;
+        }
         await supabase.from("enrollments").update({
           studentid: form.studentid, groupid: form.groupid, status: form.status,
         }).eq("id", editing.id);
@@ -208,18 +213,40 @@ export function EnrollmentsManagement({ initialEnrollments, students, groups }: 
         } : e));
         toast.success("Inscription mise à jour");
       } else {
-        if (dupes.length > 0) { toast.error("Cet étudiant est déjà inscrit dans ce groupe"); setSaving(false); return; }
-        const id = uuid();
-        const enrolledat = new Date().toISOString();
-        await supabase.from("enrollments").insert({
-          id, studentid: form.studentid, groupid: form.groupid, status: form.status, enrolledat,
-        });
-        setEnrollments((prev) => [{
-          id, studentid: form.studentid, studentName: student.fullName,
-          groupid: form.groupid, groupName: group.name, moduleName: group.moduleName,
-          status: form.status, enrolledat,
-        }, ...prev]);
-        toast.success("Inscription créée");
+        const activeOrCompleted = dupes.find((d) => d.status === "active" || d.status === "completed");
+        if (activeOrCompleted) {
+          toast.error("Cet étudiant est déjà actif dans ce groupe");
+          setSaving(false);
+          return;
+        }
+
+        const droppedDupe = dupes.find((d) => d.status === "dropped");
+        if (droppedDupe) {
+          // Réactiver l'inscription existante
+          const enrolledat = new Date().toISOString();
+          await supabase.from("enrollments").update({
+            status: form.status,
+            enrolledat,
+          }).eq("id", droppedDupe.id);
+          setEnrollments((prev) => [{
+            id: droppedDupe.id, studentid: form.studentid, studentName: student.fullName,
+            groupid: form.groupid, groupName: group.name, moduleName: group.moduleName,
+            status: form.status, enrolledat,
+          }, ...prev.filter((e) => e.id !== droppedDupe.id)]);
+          toast.success("Inscription réactivée avec succès");
+        } else {
+          const id = uuid();
+          const enrolledat = new Date().toISOString();
+          await supabase.from("enrollments").insert({
+            id, studentid: form.studentid, groupid: form.groupid, status: form.status, enrolledat,
+          });
+          setEnrollments((prev) => [{
+            id, studentid: form.studentid, studentName: student.fullName,
+            groupid: form.groupid, groupName: group.name, moduleName: group.moduleName,
+            status: form.status, enrolledat,
+          }, ...prev]);
+          toast.success("Inscription créée");
+        }
         setDialogOpen(false);
 
         // Ouvre immédiatement la fenêtre de paiement
@@ -234,9 +261,11 @@ export function EnrollmentsManagement({ initialEnrollments, students, groups }: 
             .select("moduleid, modules(monthly_price)")
             .eq("id", form.groupid)
             .single();
-          const price = (gData as any)?.modules?.monthly_price;
-          if (price) realPrice = price;
-        } catch (e) {}
+          const price = (gData as { modules?: { monthly_price?: number } } | null)?.modules?.monthly_price;
+          if (typeof price === "number" && price > 0) realPrice = price;
+        } catch {
+          // Utilise le prix par défaut
+        }
 
         setPaymentBasePrice(realPrice);
         setPaymentAmountPaid(realPrice);
@@ -252,18 +281,21 @@ export function EnrollmentsManagement({ initialEnrollments, students, groups }: 
     setPaymentSaving(true);
     try {
       const todayPeriod = currentMonthLocal();
+      const safeDue = Math.max(0, calculatedAmountDue);
+      const safePaid = Math.max(0, Number(paymentAmountPaid) || 0);
+
       const res = await recordStudentPaymentAction({
         student_id: paymentStudent.id,
         billing_period: todayPeriod,
-        amount_due: calculatedAmountDue,
-        amount_paid: paymentAmountPaid,
+        amount_due: safeDue,
+        amount_paid: safePaid,
         due_date: todayLocal(),
         payment_method: paymentMethod,
         notes: `Paiement initial (${paymentProrata}/4 séances) - Groupe ${paymentGroup.name}`,
       });
       if (!res.ok) throw new Error(res.error || "Erreur enregistrement paiement");
       toast.success("Paiement enregistré avec succès !", {
-        description: `Un reçu de ${paymentAmountPaid.toLocaleString("fr-FR")} DA a été généré pour ${paymentStudent.fullName}.`,
+        description: `Un reçu de ${safePaid.toLocaleString("fr-FR")} DA a été généré pour ${paymentStudent.fullName}.`,
       });
       setPaymentDialogOpen(false);
     } catch (err) {
@@ -584,8 +616,9 @@ export function EnrollmentsManagement({ initialEnrollments, students, groups }: 
                 <SelectContent className="rounded-2xl border-[#6d28d9]/15 shadow-xl">
                   <SelectItem value="cash" className="rounded-xl text-xs font-bold">💵 Espèces (Cash)</SelectItem>
                   <SelectItem value="baridimob" className="rounded-xl text-xs font-bold">📱 BaridiMob</SelectItem>
-                  <SelectItem value="cc" className="rounded-xl text-xs font-bold">💳 Carte Bancaire (CIB)</SelectItem>
+                  <SelectItem value="ccp" className="rounded-xl text-xs font-bold">📮 CCP / Chèque Postal</SelectItem>
                   <SelectItem value="bank_transfer" className="rounded-xl text-xs font-bold">🏦 Virement Bancaire</SelectItem>
+                  <SelectItem value="check" className="rounded-xl text-xs font-bold">📝 Chèque Bancaire</SelectItem>
                 </SelectContent>
               </Select>
             </div>

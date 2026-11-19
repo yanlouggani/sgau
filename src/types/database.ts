@@ -224,7 +224,7 @@ export type AttendanceRecord = {
 
 export type PaymentType = "hourly" | "percentage";
 export type PaymentStatus = "paid" | "partial" | "late" | "unpaid";
-export type PaymentMethod = "cash" | "baridimob" | "ccp" | "bank_transfer" | "check";
+export type PaymentMethod = "cash" | "baridimob" | "ccp" | "bank_transfer" | "transfer" | "check";
 
 export type StudentPayment = {
   id: string;

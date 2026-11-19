@@ -68,6 +68,7 @@ import {
 import { toast } from "sonner";
 import {
   getStudentPaymentsAction,
+  getTodayCashReceiptsAction,
   recordStudentPaymentAction,
   getProfessorPaymentsAction,
   generateMonthlyProfessorPaymentsAction,
@@ -80,6 +81,8 @@ import {
   type CashExpense,
   EXPENSE_CATEGORIES,
   getLocalExpenses,
+  getExpensesForDate,
+  calculateDailyCashSummary,
   addLocalExpense,
   deleteLocalExpense,
 } from "@/lib/cash-register";
@@ -163,10 +166,14 @@ function PaymentsPageContent() {
   const [generatingProfPayments, setGeneratingProfPayments] = useState<boolean>(false);
   const [viewingProfPayment, setViewingProfPayment] = useState<ProfessorPayment | null>(null);
 
+  // Date du jour pour la caisse
+  const todayStr = useMemo(() => todayLocal(), []);
+
   // État Reçu de paiement élève imprimable
   const [viewingStudentReceipt, setViewingStudentReceipt] = useState<StudentPayment | null>(null);
 
   // État Caisse Journalière (Z de Caisse) & Dépenses
+  const [serverCashReceipts, setServerCashReceipts] = useState<StudentPayment[]>([]);
   const [todayExpenses, setTodayExpenses] = useState<CashExpense[]>([]);
   const [newExpenseDialogOpen, setNewExpenseDialogOpen] = useState<boolean>(false);
   const [newExpenseForm, setNewExpenseForm] = useState<{
@@ -179,10 +186,22 @@ function PaymentsPageContent() {
     amount: 500,
   });
 
-  // Charger les dépenses locales au montage
+  // Charger les dépenses locales du jour au montage
   useEffect(() => {
-    setTodayExpenses(getLocalExpenses());
-  }, []);
+    setTodayExpenses(getExpensesForDate(todayStr));
+  }, [todayStr]);
+
+  // Charger les encaissements espèces serveur du jour
+  const loadTodayCashReceipts = useCallback(async () => {
+    const res = await getTodayCashReceiptsAction(todayStr);
+    if (res.ok && res.data) {
+      setServerCashReceipts(res.data);
+    }
+  }, [todayStr]);
+
+  useEffect(() => {
+    loadTodayCashReceipts();
+  }, [loadTodayCashReceipts]);
 
   // Fonction de relance WhatsApp en 1 clic
   const openWhatsAppReminder = (payment: StudentPayment) => {
@@ -194,8 +213,8 @@ function PaymentsPageContent() {
     const remaining = Math.max(0, payment.amount_due - payment.amount_paid);
     const message = `Bonjour, Centre de soutien scolaire.\nNous vous informons aimablement que la cotisation du mois de ${payment.billing_period} pour votre enfant ${payment.studentName} est arrivée à échéance.\nReste à régler : ${remaining.toLocaleString("fr-FR")} DA (Échéance : ${payment.due_date}).\nMerci de vous rapprocher du secrétariat pour régulariser le dossier.\nCordialement.`;
 
-    if (!cleanPhone) {
-      toast.info("Numéro parent non renseigné", {
+    if (!cleanPhone || cleanPhone.length < 9) {
+      toast.info("Numéro parent non renseigné ou incomplet", {
         description: "Ouverture de WhatsApp pour choisir le destinataire manuellement.",
       });
       window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, "_blank");
@@ -407,46 +426,44 @@ function PaymentsPageContent() {
     return { totalAmount, paidAmount, pendingCount };
   }, [professorPayments]);
 
-  // Date du jour pour la caisse
-  const todayStr = useMemo(() => todayLocal(), []);
-
-  // Total encaissé en espèces aujourd'hui (date de paiement ou création = today)
+  // Total encaissé en espèces aujourd'hui (exhaustif : serveur + local)
   const todayCashReceipts = useMemo(() => {
-    return studentPayments.filter((p) => {
+    const map = new Map<string, StudentPayment>();
+    serverCashReceipts.forEach((p) => map.set(p.id, p));
+    studentPayments.forEach((p) => {
       const isToday =
         (p.paid_at && p.paid_at.startsWith(todayStr)) ||
         (p.created_at && p.created_at.startsWith(todayStr));
-      return isToday && p.payment_method === "cash" && p.amount_paid > 0;
+      if (isToday && p.payment_method === "cash" && p.amount_paid > 0) {
+        map.set(p.id, p);
+      }
     });
-  }, [studentPayments, todayStr]);
+    return Array.from(map.values());
+  }, [serverCashReceipts, studentPayments, todayStr]);
 
-  const todayCashIn = useMemo(() => {
-    return todayCashReceipts.reduce((acc, curr) => acc + curr.amount_paid, 0);
-  }, [todayCashReceipts]);
-
-  const todayCashOut = useMemo(() => {
-    return todayExpenses.reduce((acc, curr) => acc + curr.amount, 0);
-  }, [todayExpenses]);
-
-  const todayCashNet = todayCashIn - todayCashOut;
+  const { totalIn: todayCashIn, totalOut: todayCashOut, netBalance: todayCashNet } = useMemo(() => {
+    return calculateDailyCashSummary(todayCashReceipts, todayExpenses);
+  }, [todayCashReceipts, todayExpenses]);
 
   const handleAddExpense = () => {
     if (!newExpenseForm.description.trim()) {
       toast.error("Veuillez indiquer le motif de la dépense.");
       return;
     }
-    if (newExpenseForm.amount <= 0) {
+    const safeAmount = Number(newExpenseForm.amount) || 0;
+    if (safeAmount <= 0) {
       toast.error("Le montant doit être supérieur à 0 DA.");
       return;
     }
 
-    const created = addLocalExpense({
+    addLocalExpense({
       description: newExpenseForm.description.trim(),
       category: newExpenseForm.category,
-      amount: Number(newExpenseForm.amount),
+      amount: safeAmount,
+      date: todayStr,
     });
 
-    setTodayExpenses((prev) => [created, ...prev]);
+    setTodayExpenses(getExpensesForDate(todayStr));
     toast.success("Dépense enregistrée dans la caisse du jour");
     setNewExpenseDialogOpen(false);
     setNewExpenseForm({
@@ -458,8 +475,33 @@ function PaymentsPageContent() {
 
   const handleDeleteExpense = (expId: string) => {
     deleteLocalExpense(expId);
-    setTodayExpenses((prev) => prev.filter((e) => e.id !== expId));
+    setTodayExpenses(getExpensesForDate(todayStr));
     toast.info("Dépense retirée du journal de caisse");
+  };
+
+  // Handlers d'impression séparés sans superposition
+  const handlePrintReceipt = () => {
+    document.body.classList.add("print-receipt");
+    window.print();
+    setTimeout(() => {
+      document.body.classList.remove("print-receipt");
+    }, 1000);
+  };
+
+  const handlePrintPaySlip = () => {
+    document.body.classList.add("print-payslip");
+    window.print();
+    setTimeout(() => {
+      document.body.classList.remove("print-payslip");
+    }, 1000);
+  };
+
+  const handlePrintZ = () => {
+    document.body.classList.add("print-z");
+    window.print();
+    setTimeout(() => {
+      document.body.classList.remove("print-z");
+    }, 1000);
   };
 
   // Enregistrer ou modifier un paiement élève
@@ -493,6 +535,7 @@ function PaymentsPageContent() {
       );
       setStudentDialogOpen(false);
       loadStudentPayments();
+      loadTodayCashReceipts();
     } else {
       toast.error(res.error || "Erreur lors de l'enregistrement");
     }
@@ -1395,7 +1438,7 @@ function PaymentsPageContent() {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => window.print()}
+                onClick={handlePrintZ}
                 className="rounded-xl border-[#6d28d9]/25 text-[#6d28d9] hover:bg-[#6d28d9]/10 font-bold text-xs gap-1.5"
               >
                 <Printer className="h-4 w-4" />
@@ -2108,7 +2151,7 @@ function PaymentsPageContent() {
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => window.print()}
+                onClick={handlePrintPaySlip}
                 className="rounded-xl font-bold border-[#6d28d9]/30 text-[#6d28d9] hover:bg-[#6d28d9]/10 gap-2 text-xs"
               >
                 <Printer className="h-4 w-4" />
@@ -2363,7 +2406,7 @@ function PaymentsPageContent() {
                 type="button"
                 variant="outline"
                 size="sm"
-                onClick={() => window.print()}
+                onClick={handlePrintReceipt}
                 className="rounded-xl font-bold border-[#6d28d9]/30 text-[#6d28d9] hover:bg-[#6d28d9]/10 gap-1.5 text-xs"
               >
                 <Printer className="h-4 w-4" />
@@ -2407,6 +2450,32 @@ function PaymentsPageContent() {
           </div>
         </div>
 
+        <h3 className="font-bold text-sm mb-2 border-b pb-1">Détail des Encaissements Espèces (Élèves)</h3>
+        {todayCashReceipts.length === 0 ? (
+          <p className="text-xs text-slate-500 italic mb-4">Aucun versement espèces enregistré pour cette journée.</p>
+        ) : (
+          <table className="w-full text-xs border mb-6">
+            <thead>
+              <tr className="bg-slate-100 text-left">
+                <th className="p-2 border">Élève</th>
+                <th className="p-2 border">Mois</th>
+                <th className="p-2 border">Heure / Date</th>
+                <th className="p-2 border text-right">Montant Encaissé</th>
+              </tr>
+            </thead>
+            <tbody>
+              {todayCashReceipts.map((rcpt) => (
+                <tr key={rcpt.id}>
+                  <td className="p-2 border font-medium">{rcpt.studentName}</td>
+                  <td className="p-2 border">{rcpt.billing_period}</td>
+                  <td className="p-2 border">{(rcpt.paid_at || rcpt.created_at || "").split("T")[1]?.slice(0, 5) || "—"}</td>
+                  <td className="p-2 border text-right font-bold text-emerald-700">+{rcpt.amount_paid.toLocaleString("fr-FR")} DA</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+
         <h3 className="font-bold text-sm mb-2 border-b pb-1">Détail des Décaissements / Dépenses</h3>
         <table className="w-full text-xs border mb-6">
           <thead>
@@ -2443,34 +2512,78 @@ function PaymentsPageContent() {
 
       <style jsx global>{`
         @media print {
+          @page {
+            size: auto;
+            margin: 10mm;
+          }
+          body {
+            background: #ffffff !important;
+            color: #0f172a !important;
+          }
           body * {
             visibility: hidden !important;
           }
-          #printable-pay-slip,
-          #printable-pay-slip *,
-          #printable-student-receipt,
-          #printable-student-receipt *,
-          #printable-cash-z,
-          #printable-cash-z * {
+
+          /* Mode Reçu Étudiant */
+          body.print-receipt #printable-student-receipt,
+          body.print-receipt #printable-student-receipt * {
             visibility: visible !important;
           }
-          #printable-pay-slip,
-          #printable-student-receipt,
-          #printable-cash-z {
+          body.print-receipt #printable-student-receipt {
             display: block !important;
-            position: fixed !important;
+            position: absolute !important;
             left: 0 !important;
             top: 0 !important;
-            width: 100vw !important;
-            height: auto !important;
+            width: 100% !important;
             margin: 0 !important;
-            padding: 32px !important;
-            background: #ffffff !important;
-            color: #0f172a !important;
-            font-size: 12px !important;
-            z-index: 999999 !important;
+            padding: 12px !important;
+            border: 1px solid #cbd5e1 !important;
+          }
+
+          /* Mode Bordereau Rémunération Enseignant */
+          body.print-payslip #printable-pay-slip,
+          body.print-payslip #printable-pay-slip * {
+            visibility: visible !important;
+          }
+          body.print-payslip #printable-pay-slip {
+            display: block !important;
+            position: absolute !important;
+            left: 0 !important;
+            top: 0 !important;
+            width: 100% !important;
+            margin: 0 !important;
+            padding: 16px !important;
+          }
+
+          /* Mode Clôture Z de Caisse */
+          body.print-z #printable-cash-z,
+          body.print-z #printable-cash-z * {
+            visibility: visible !important;
+          }
+          body.print-z #printable-cash-z {
+            display: block !important;
+            position: absolute !important;
+            left: 0 !important;
+            top: 0 !important;
+            width: 100% !important;
+            margin: 0 !important;
+            padding: 16px !important;
+          }
+
+          /* Reset Radix Modal Portal overlays during print */
+          div[data-radix-portal] {
+            position: static !important;
+          }
+          div[data-radix-portal] > div {
+            position: static !important;
+            transform: none !important;
             border: none !important;
             box-shadow: none !important;
+            padding: 0 !important;
+            margin: 0 !important;
+            background: transparent !important;
+            max-width: 100% !important;
+            width: 100% !important;
           }
         }
       `}</style>

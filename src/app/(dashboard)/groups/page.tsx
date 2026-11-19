@@ -56,7 +56,9 @@ export default function GroupsPage() {
   type Form = typeof form;
   const supabase = createClient();
 
-  const filteredModules = modules.filter((m) => !form.domainid || m.domainid === form.domainid);
+  const filteredModules = modules.filter(
+    (m) => !form.domainid || form.domainid === "all" || m.domainid === form.domainid
+  );
 
   const load = useCallback(async () => {
     setLoading(true); setError(null);
@@ -104,31 +106,36 @@ export default function GroupsPage() {
   };
 
   const handleSave = async () => {
+    if (!form.name || !form.name.trim()) {
+      toast.error("Veuillez saisir le nom du groupe");
+      return;
+    }
     setSaving(true);
     try {
+      const cleanName = form.name.trim();
       if (editing) {
         const { error: err } = await supabase.from("groups").update({
           moduleid: form.moduleid || null,
-          name: form.name, isactive: form.isactive,
+          name: cleanName, isactive: form.isactive,
         }).eq("id", editing.id);
         if (err) throw err;
         const mod = modules.find((m) => m.id === form.moduleid);
         setRows((prev) => prev.map((r) => r.id === editing.id ? {
           ...r, moduleid: form.moduleid || null, module_name: mod?.name ?? null,
-          name: form.name, isactive: form.isactive,
+          name: cleanName, isactive: form.isactive,
         } : r));
         toast.success("Groupe mis à jour");
       } else {
         const id = uuid();
         const { error: err } = await supabase.from("groups").insert({
           id, moduleid: form.moduleid || null,
-          name: form.name, isactive: form.isactive,
+          name: cleanName, isactive: form.isactive,
         });
         if (err) throw err;
         const mod = modules.find((m) => m.id === form.moduleid);
         setRows((prev) => [{
           id, moduleid: form.moduleid || null, module_name: mod?.name ?? null,
-          name: form.name, isactive: form.isactive,
+          name: cleanName, isactive: form.isactive,
         }, ...prev]);
         toast.success("Groupe créé");
       }
@@ -276,10 +283,14 @@ export default function GroupsPage() {
           <div className="space-y-4 py-3">
             <div className="space-y-1.5">
               <Label htmlFor="grp-domain" className="text-xs font-bold text-[#1a1a2e]">Domaine</Label>
-              <Select value={form.domainid} onValueChange={(v) => { setForm({ ...form, domainid: v ?? "", moduleid: "" }); }}>
-                <SelectTrigger id="grp-domain" className="rounded-xl border-[#6d28d9]/10 text-xs"><SelectValue placeholder="Sélectionner un domaine">{(v: string) => domains.find((d) => d.id === v)?.name ?? v}</SelectValue></SelectTrigger>
+              <Select value={form.domainid || "all"} onValueChange={(v) => { setForm({ ...form, domainid: v === "all" ? "" : (v ?? ""), moduleid: "" }); }}>
+                <SelectTrigger id="grp-domain" className="rounded-xl border-[#6d28d9]/10 text-xs">
+                  <SelectValue placeholder="Sélectionner un domaine">
+                    {domains.find((d) => d.id === form.domainid)?.name || "Tous les domaines"}
+                  </SelectValue>
+                </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Tous les domaines</SelectItem>
+                  <SelectItem value="all">Tous les domaines</SelectItem>
                   {domains.map((d) => <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>)}
                 </SelectContent>
               </Select>

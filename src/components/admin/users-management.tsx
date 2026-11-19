@@ -1,17 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { createClient } from "@/lib/supabase/browser";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import {
   Table,
   TableBody,
@@ -44,6 +36,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -56,20 +49,27 @@ import {
   Loader2,
   Shield,
   UserCheck,
-  User,
+  UserX,
   GraduationCap,
   ClipboardList,
   Eye,
   EyeOff,
   KeyRound,
   Check,
+  Copy,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Mascot } from "@/components/mascot/Mascot";
 import { MascotHeader } from "@/components/mascot/MascotHeader";
 import { EmptyState } from "@/components/mascot/EmptyState";
 import type { AppUser, UserRole } from "@/types/database";
-import { createUserAction, updateUserAuthAction } from "@/lib/actions/admin-users";
+import {
+  createUserAction,
+  updateUserAction,
+  deleteUserAction,
+  toggleUserActiveAction,
+} from "@/lib/actions/admin-users";
+import { generateSecureTempPassword } from "@/lib/user-auth-utils";
 import { cn } from "@/lib/utils";
 
 type FormData = {
@@ -149,8 +149,10 @@ const ROLE_DEFINITIONS: {
 
 export function UsersManagement({
   initialUsers,
+  currentUserId,
 }: {
   initialUsers: AppUser[];
+  currentUserId?: string;
 }) {
   const [users, setUsers] = useState<AppUser[]>(initialUsers);
   const [search, setSearch] = useState("");
@@ -162,7 +164,7 @@ export function UsersManagement({
   const [form, setForm] = useState<FormData>(emptyForm);
   const [showPassword, setShowPassword] = useState(false);
   const [saving, setSaving] = useState(false);
-  const supabase = createClient();
+  const [generatedPasswordNotice, setGeneratedPasswordNotice] = useState<string | null>(null);
 
   // Statistiques par rôle
   const roleCounts = {
@@ -175,12 +177,10 @@ export function UsersManagement({
 
   const filtered = users.filter((u) => {
     const term = search.trim().toLowerCase();
-    const matchesSearch =
-      !term ||
-      u.fullName.toLowerCase().includes(term) ||
-      u.email.toLowerCase().includes(term);
-    const matchesRole =
-      selectedRoleFilter === "all" || u.role === selectedRoleFilter;
+    const fullName = (u.fullName ?? `${u.firstname} ${u.lastname}`).toLowerCase();
+    const email = (u.email ?? "").toLowerCase();
+    const matchesSearch = !term || fullName.includes(term) || email.includes(term);
+    const matchesRole = selectedRoleFilter === "all" || u.role === selectedRoleFilter;
     return matchesSearch && matchesRole;
   });
 
@@ -188,6 +188,7 @@ export function UsersManagement({
     setEditingUser(null);
     setForm(emptyForm);
     setShowPassword(false);
+    setGeneratedPasswordNotice(null);
     setDialogOpen(true);
   };
 
@@ -202,18 +203,24 @@ export function UsersManagement({
       isActive: user.isactive ?? true,
     });
     setShowPassword(false);
+    setGeneratedPasswordNotice(null);
     setDialogOpen(true);
   };
 
   const generateRandomPassword = () => {
-    const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789!@#$%";
-    let pass = "";
-    for (let i = 0; i < 12; i++) {
-      pass += chars.charAt(Math.floor(Math.random() * chars.length));
-    }
+    const pass = generateSecureTempPassword();
     setForm((prev) => ({ ...prev, password: pass }));
     setShowPassword(true);
-    toast.info("Mot de passe généré automatiquement", { description: pass });
+    toast.info("Mot de passe sécurisé généré", {
+      description: pass,
+      action: {
+        label: "Copier",
+        onClick: () => {
+          navigator.clipboard.writeText(pass);
+          toast.success("Mot de passe copié dans le presse-papiers");
+        },
+      },
+    });
   };
 
   const handleSave = async () => {
@@ -225,31 +232,25 @@ export function UsersManagement({
       toast.error("Veuillez saisir une adresse email valide.");
       return;
     }
-    if (!editingUser && (!form.password || form.password.length < 6)) {
-      toast.error("Le mot de passe doit comporter au moins 6 caractères.");
+    // Si un mot de passe est saisi, valider la longueur minimale de 8 caractères
+    if (form.password && form.password.trim().length > 0 && form.password.trim().length < 8) {
+      toast.error("Le mot de passe doit comporter au moins 8 caractères.");
       return;
     }
 
     setSaving(true);
     try {
       if (editingUser) {
-        // Mise à jour profil
-        const { error } = await supabase
-          .from("users")
-          .update({
-            email: form.email.trim().toLowerCase(),
-            firstname: form.firstName.trim(),
-            lastname: form.lastName.trim(),
-            role: form.role,
-            isactive: form.isActive,
-          })
-          .eq("id", editingUser.id);
-        if (error) throw error;
-
-        // Mise à jour mot de passe auth si renseigné
-        if (form.password && form.password.trim().length >= 6) {
-          await updateUserAuthAction({ id: editingUser.id, password: form.password.trim() });
-        }
+        // Mise à jour profil & identifiants via Server Action sécurisée
+        await updateUserAction({
+          id: editingUser.id,
+          email: form.email.trim().toLowerCase(),
+          firstname: form.firstName.trim(),
+          lastname: form.lastName.trim(),
+          role: form.role,
+          isActive: form.isActive,
+          password: form.password.trim().length >= 8 ? form.password.trim() : undefined,
+        });
 
         setUsers((prev) =>
           prev.map((u) =>
@@ -267,29 +268,22 @@ export function UsersManagement({
               : u
           )
         );
-        toast.success("Compte utilisateur mis à jour");
+        toast.success("Compte utilisateur mis à jour avec succès");
       } else {
-        // Création nouveau compte avec rôle choisi
-        const { user: createdUser } = await createUserAction({
+        // Création nouveau compte avec rôle choisi via Server Action
+        const res = await createUserAction({
           email: form.email.trim().toLowerCase(),
-          password: form.password,
+          password: form.password.trim() ? form.password.trim() : undefined,
           firstname: form.firstName.trim(),
           lastname: form.lastName.trim(),
           role: form.role,
+          isActive: form.isActive,
         });
 
-        if (!createdUser) throw new Error("Échec de la création du compte.");
-
-        // Si le compte a été marqué inactif lors de la création
-        if (!form.isActive) {
-          await supabase
-            .from("users")
-            .update({ isactive: false })
-            .eq("id", createdUser.id);
-        }
+        if (!res.user) throw new Error("Échec de la création du compte.");
 
         const appUser: AppUser = {
-          id: createdUser.id,
+          id: res.user.id,
           email: form.email.trim().toLowerCase(),
           firstname: form.firstName.trim(),
           lastname: form.lastName.trim(),
@@ -301,7 +295,22 @@ export function UsersManagement({
         };
 
         setUsers((prev) => [appUser, ...prev]);
-        toast.success(`Compte ${getRoleLabel(form.role)} créé avec succès !`);
+
+        if (res.tempPassword) {
+          toast.success(`Compte ${getRoleLabel(form.role)} créé avec succès !`, {
+            description: `Mot de passe temporaire : ${res.tempPassword}`,
+            duration: 12000,
+            action: {
+              label: "Copier",
+              onClick: () => {
+                navigator.clipboard.writeText(res.tempPassword!);
+                toast.success("Mot de passe copié !");
+              },
+            },
+          });
+        } else {
+          toast.success(`Compte ${getRoleLabel(form.role)} créé avec succès !`);
+        }
       }
       setDialogOpen(false);
     } catch (err) {
@@ -313,20 +322,49 @@ export function UsersManagement({
     }
   };
 
+  const handleToggleActive = async (user: AppUser) => {
+    if (currentUserId && user.id === currentUserId && user.isactive) {
+      toast.error("Action impossible", {
+        description: "Vous ne pouvez pas désactiver votre propre compte administrateur.",
+      });
+      return;
+    }
+
+    const nextStatus = !user.isactive;
+    try {
+      await toggleUserActiveAction({ id: user.id, isActive: nextStatus });
+      setUsers((prev) =>
+        prev.map((u) => (u.id === user.id ? { ...u, isactive: nextStatus } : u))
+      );
+      toast.success(nextStatus ? "Compte réactivé avec succès" : "Compte désactivé avec succès");
+    } catch (err) {
+      toast.error("Erreur lors de la modification du statut", {
+        description: err instanceof Error ? err.message : String(err),
+      });
+    }
+  };
+
   const confirmDelete = async () => {
     if (!deleteTarget) return;
+
+    if (currentUserId && deleteTarget.id === currentUserId) {
+      toast.error("Action impossible", {
+        description: "Vous ne pouvez pas supprimer votre propre compte administrateur.",
+      });
+      setDeleteTarget(null);
+      return;
+    }
+
     setDeleting(true);
     try {
-      const { error } = await supabase.rpc("admin_delete_user", { p_uid: deleteTarget.id });
-      if (error) {
-        toast.error("Erreur de suppression", { description: error.message });
-        return;
-      }
+      await deleteUserAction({ id: deleteTarget.id });
       setUsers((prev) => prev.filter((u) => u.id !== deleteTarget.id));
       toast.success("Utilisateur supprimé définitivement");
       setDeleteTarget(null);
     } catch (err: unknown) {
-      toast.error("Erreur", { description: err instanceof Error ? err.message : String(err) });
+      toast.error("Erreur lors de la suppression", {
+        description: err instanceof Error ? err.message : String(err),
+      });
     } finally {
       setDeleting(false);
     }
@@ -476,91 +514,127 @@ export function UsersManagement({
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filtered.map((user) => (
-                  <TableRow
-                    key={user.id}
-                    className="border-b border-[#6d28d9]/5 hover:bg-[#f3f0ff]/30 transition-colors"
-                  >
-                    <TableCell className="py-3.5">
-                      <div className="flex items-center gap-3">
-                        <Avatar className="h-9 w-9 border border-[#6d28d9]/20 ring-1 ring-[#6d28d9]/10">
-                          <AvatarFallback className="bg-gradient-to-br from-[#6d28d9] to-[#8b5cf6] text-xs font-bold text-white">
-                            {user.initials}
-                          </AvatarFallback>
-                        </Avatar>
-                        <div>
-                          <p className="text-sm font-bold text-[#0f172a] leading-none">
-                            {user.fullName}
-                          </p>
-                          <p className="text-xs text-[#475569] mt-1 font-semibold">
-                            {user.email}
-                          </p>
+                {filtered.map((user) => {
+                  const isSelf = Boolean(currentUserId && user.id === currentUserId);
+                  return (
+                    <TableRow
+                      key={user.id}
+                      className="border-b border-[#6d28d9]/5 hover:bg-[#f3f0ff]/30 transition-colors"
+                    >
+                      <TableCell className="py-3.5">
+                        <div className="flex items-center gap-3">
+                          <Avatar className="h-9 w-9 border border-[#6d28d9]/20 ring-1 ring-[#6d28d9]/10">
+                            <AvatarFallback className="bg-gradient-to-br from-[#6d28d9] to-[#8b5cf6] text-xs font-bold text-white">
+                              {user.initials}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <p className="text-sm font-bold text-[#0f172a] leading-none">
+                                {user.fullName}
+                              </p>
+                              {isSelf && (
+                                <Badge className="bg-[#6d28d9]/10 text-[#6d28d9] border-[#6d28d9]/20 text-[10px] font-extrabold px-1.5 py-0">
+                                  Vous
+                                </Badge>
+                              )}
+                            </div>
+                            <p className="text-xs text-[#475569] mt-1 font-semibold">
+                              {user.email}
+                            </p>
+                          </div>
                         </div>
-                      </div>
-                    </TableCell>
-                    <TableCell className="py-3.5">
-                      <Badge
-                        variant="outline"
-                        className={cn("gap-1 rounded-lg px-2.5 py-1 text-xs", getRoleBadge(user.role))}
-                      >
-                        {getRoleIcon(user.role)}
-                        {getRoleLabel(user.role)}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="hidden py-3.5 sm:table-cell">
-                      <span
-                        className={cn(
-                          "inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-bold",
-                          user.isactive
-                            ? "bg-emerald-50 text-emerald-700"
-                            : "bg-amber-50 text-amber-700"
-                        )}
-                      >
-                        <span
-                          className={cn(
-                            "h-2 w-2 rounded-full",
-                            user.isactive ? "bg-emerald-500 animate-pulse" : "bg-amber-500"
-                          )}
-                        />
-                        {user.isactive ? "Actif" : "Inactif"}
-                      </span>
-                    </TableCell>
-                    <TableCell className="py-3.5">
-                      <DropdownMenu>
-                        <DropdownMenuTrigger
-                          render={
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8 rounded-xl text-[#475569] hover:bg-[#6d28d9]/10 hover:text-[#6d28d9]"
-                            >
-                              <MoreHorizontal className="h-4 w-4" />
-                            </Button>
-                          }
-                        />
-                        <DropdownMenuContent
-                          align="end"
-                          className="w-44 rounded-2xl p-1.5 shadow-xl border-[#6d28d9]/10"
+                      </TableCell>
+                      <TableCell className="py-3.5">
+                        <Badge
+                          variant="outline"
+                          className={cn("gap-1 rounded-lg px-2.5 py-1 text-xs", getRoleBadge(user.role))}
                         >
-                          <DropdownMenuItem
-                            onClick={() => openEdit(user)}
-                            className="rounded-xl text-xs font-semibold cursor-pointer"
+                          {getRoleIcon(user.role)}
+                          {getRoleLabel(user.role)}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="hidden py-3.5 sm:table-cell">
+                        <button
+                          type="button"
+                          onClick={() => handleToggleActive(user)}
+                          title="Cliquer pour changer le statut"
+                          className={cn(
+                            "inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-bold transition-transform hover:scale-105 cursor-pointer",
+                            user.isactive
+                              ? "bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
+                              : "bg-amber-50 text-amber-700 hover:bg-amber-100"
+                          )}
+                        >
+                          <span
+                            className={cn(
+                              "h-2 w-2 rounded-full",
+                              user.isactive ? "bg-emerald-500 animate-pulse" : "bg-amber-500"
+                            )}
+                          />
+                          {user.isactive ? "Actif" : "Inactif"}
+                        </button>
+                      </TableCell>
+                      <TableCell className="py-3.5">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger
+                            render={
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 rounded-xl text-[#475569] hover:bg-[#6d28d9]/10 hover:text-[#6d28d9]"
+                              >
+                                <MoreHorizontal className="h-4 w-4" />
+                              </Button>
+                            }
+                          />
+                          <DropdownMenuContent
+                            align="end"
+                            className="w-48 rounded-2xl p-1.5 shadow-xl border-[#6d28d9]/10"
                           >
-                            <Edit className="mr-2 h-4 w-4 text-[#6d28d9]" />
-                            Modifier
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            className="rounded-xl text-xs font-semibold text-rose-600 focus:bg-rose-50 cursor-pointer"
-                            onClick={() => setDeleteTarget(user)}
-                          >
-                            <Trash2 className="mr-2 h-4 w-4" />
-                            Supprimer
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </TableCell>
-                  </TableRow>
-                ))}
+                            <DropdownMenuItem
+                              onClick={() => openEdit(user)}
+                              className="rounded-xl text-xs font-semibold cursor-pointer"
+                            >
+                              <Edit className="mr-2 h-4 w-4 text-[#6d28d9]" />
+                              Modifier
+                            </DropdownMenuItem>
+
+                            <DropdownMenuItem
+                              onClick={() => handleToggleActive(user)}
+                              className="rounded-xl text-xs font-semibold cursor-pointer"
+                            >
+                              {user.isactive ? (
+                                <>
+                                  <UserX className="mr-2 h-4 w-4 text-amber-600" />
+                                  Désactiver le compte
+                                </>
+                              ) : (
+                                <>
+                                  <UserCheck className="mr-2 h-4 w-4 text-emerald-600" />
+                                  Activer le compte
+                                </>
+                              )}
+                            </DropdownMenuItem>
+
+                            {!isSelf && (
+                              <>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem
+                                  className="rounded-xl text-xs font-semibold text-rose-600 focus:bg-rose-50 cursor-pointer"
+                                  onClick={() => setDeleteTarget(user)}
+                                >
+                                  <Trash2 className="mr-2 h-4 w-4" />
+                                  Supprimer
+                                </DropdownMenuItem>
+                              </>
+                            )}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
           )}
@@ -686,7 +760,7 @@ export function UsersManagement({
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
                 <Label htmlFor="password" className="text-xs font-bold text-[#0f172a]">
-                  {editingUser ? "Nouveau mot de passe" : "Mot de passe *"}
+                  {editingUser ? "Nouveau mot de passe" : "Mot de passe"}
                 </Label>
                 <button
                   type="button"
@@ -705,15 +779,16 @@ export function UsersManagement({
                   onChange={(e) => setForm({ ...form, password: e.target.value })}
                   placeholder={
                     editingUser
-                      ? "Laisser vide si inchangé"
-                      : "Minimum 6 caractères (ex: Securite2026!)"
+                      ? "Laisser vide si inchangé (min. 8 caractères)"
+                      : "Min. 8 caractères (laisser vide pour auto-générer)"
                   }
                   className="rounded-xl border-slate-200 text-xs font-medium focus:border-[#6d28d9] pr-10"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[#475569] hover:text-[#6d28d9] transition-colors"
+                  aria-label={showPassword ? "Masquer le mot de passe" : "Afficher le mot de passe"}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[#475569] hover:text-[#6d28d9] transition-colors cursor-pointer"
                   tabIndex={-1}
                 >
                   {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
@@ -728,7 +803,7 @@ export function UsersManagement({
                 id="user-active"
                 checked={form.isActive}
                 onChange={(e) => setForm({ ...form, isActive: e.target.checked })}
-                className="h-4 w-4 rounded border-slate-300 text-[#6d28d9] focus:ring-[#6d28d9]"
+                className="h-4 w-4 rounded border-slate-300 text-[#6d28d9] focus:ring-[#6d28d9] cursor-pointer"
               />
               <Label htmlFor="user-active" className="text-xs font-semibold text-[#0f172a] cursor-pointer">
                 Compte actif (autoriser la connexion à la plateforme)

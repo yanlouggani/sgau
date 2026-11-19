@@ -61,30 +61,42 @@ export function GroupsManagement({ initialGroups, modules, levels }: {
   };
 
   const handleSave = async () => {
+    if (!form.name || !form.name.trim()) {
+      toast.error("Veuillez saisir un nom pour le groupe");
+      return;
+    }
     setSaving(true);
     try {
+      const cleanName = form.name.trim();
       if (editing) {
-        await supabase.from("groups").update({
-          moduleId: form.moduleId || null, levelId: form.levelId || null,
-          name: form.name, isActive: form.isActive,
+        const { error } = await supabase.from("groups").update({
+          moduleid: form.moduleId || null,
+          name: cleanName,
+          isactive: form.isActive,
         }).eq("id", editing.id);
+        if (error) throw error;
+
         const mod = modules.find((m) => m.id === form.moduleId);
         const lvl = levels.find((l) => l.id === form.levelId);
         setGroups((prev) => prev.map((g) => g.id === editing.id ? {
           ...g, moduleId: form.moduleId || null, moduleName: mod?.name ?? null,
           levelId: form.levelId || null, levelName: lvl?.name ?? null,
-          name: form.name, isActive: form.isActive,
+          name: cleanName, isActive: form.isActive,
         } : g));
         toast.success("Groupe mis à jour");
       } else {
         const id = uuid();
-        await supabase.from("groups").insert({
-          id, moduleId: form.moduleId || null, levelId: form.levelId || null,
-          name: form.name, isActive: form.isActive,
+        const { error } = await supabase.from("groups").insert({
+          id,
+          moduleid: form.moduleId || null,
+          name: cleanName,
+          isactive: form.isActive,
         });
+        if (error) throw error;
+
         const mod = modules.find((m) => m.id === form.moduleId);
         const lvl = levels.find((l) => l.id === form.levelId);
-        setGroups((prev) => [{ id, moduleId: form.moduleId || null, moduleName: mod?.name ?? null, levelId: form.levelId || null, levelName: lvl?.name ?? null, name: form.name, isActive: form.isActive }, ...prev]);
+        setGroups((prev) => [{ id, moduleId: form.moduleId || null, moduleName: mod?.name ?? null, levelId: form.levelId || null, levelName: lvl?.name ?? null, name: cleanName, isActive: form.isActive }, ...prev]);
         toast.success("Groupe créé");
       }
       setDialogOpen(false);

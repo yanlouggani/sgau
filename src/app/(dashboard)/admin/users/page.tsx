@@ -40,5 +40,5 @@ export default async function AdminUsersPage() {
     },
   }));
 
-  return <UsersManagement initialUsers={formatted} />;
+  return <UsersManagement initialUsers={formatted} currentUserId={user.id} />;
 }

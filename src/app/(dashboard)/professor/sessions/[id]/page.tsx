@@ -16,7 +16,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
 import {
-  ArrowLeft, Clock, MapPin, Users, Loader2, CheckCircle2, XCircle,
+  ArrowLeft, Clock, MapPin, Users, Loader2, CheckCircle2, CheckCircle, XCircle,
   AlertTriangle, PlayCircle, Square, ListRestart, Ban, MessageCircle,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -193,7 +193,7 @@ export default function SessionDetailPage() {
 
   const markOne = async (studentid: string, status: string) => {
     const statusLabels: Record<string, string> = {
-      present: "Présent", late: "En retard", absent: "Absent",
+      present: "Présent", late: "En retard", absent: "Absent", justified: "Absence justifiée",
     };
     const ok = await markAttendance(studentid, status);
     if (ok) mascot.show("validation", statusLabels[status] ?? "Marqué", "Présence enregistrée");
@@ -252,7 +252,14 @@ const PHONE_PREFIX = "213"; // Algerian prefix by default
     setActing(true);
     try {
       const { data, error } = await supabase.rpc("start_session", { p_session_id: id });
-      if (error) throw error;
+      if (error) {
+        // Fallback update direct si le RPC échoue ou n'est pas déployé
+        const { error: updErr } = await supabase
+          .from("sessions")
+          .update({ status: "ACTIVE", startedat: new Date().toISOString() })
+          .eq("id", id);
+        if (updErr) throw error;
+      }
       mascot.show("validation", "Séance démarrée", "Le marquage des présences est maintenant possible.");
       if (data && data !== id) router.replace(`/professor/sessions/${data}`);
       load();
@@ -288,6 +295,7 @@ const PHONE_PREFIX = "213"; // Algerian prefix by default
   const present = students.filter((s) => s.status === "present").length;
   const late = students.filter((s) => s.status === "late").length;
   const absent = students.filter((s) => s.status === "absent").length;
+  const justified = students.filter((s) => s.status === "justified").length;
   const unmarked = students.filter((s) => s.status === "unmarked").length;
   const marked = students.length - unmarked;
   const sStatus = session.status.toLowerCase();
@@ -337,7 +345,20 @@ const PHONE_PREFIX = "213"; // Algerian prefix by default
             <Button variant="destructive" className="gap-2" onClick={async () => {
               try {
                 const { error } = await supabase.rpc("close_session", { p_session_id: id });
-                if (error) throw error;
+                if (error) {
+                  // Fallback update direct
+                  const { error: updErr } = await supabase
+                    .from("sessions")
+                    .update({
+                      status: "COMPLETED",
+                      closedat: new Date().toISOString(),
+                      presentcount: present,
+                      absentcount: absent,
+                      latecount: late,
+                    })
+                    .eq("id", id);
+                  if (updErr) throw error;
+                }
                 if (students.length > 0 && present === students.length) {
                   mascot.show("celebration", "100% de présence !", "Tous vos étudiants étaient présents.");
                 } else {
@@ -363,6 +384,7 @@ const PHONE_PREFIX = "213"; // Algerian prefix by default
                 <span className="flex items-center gap-1.5"><CheckCircle2 className="h-4 w-4 text-emerald-500" /><strong>{present}</strong> Présents</span>
                 <span className="flex items-center gap-1.5"><AlertTriangle className="h-4 w-4 text-amber-500" /><strong>{late}</strong> Retards</span>
                 <span className="flex items-center gap-1.5"><XCircle className="h-4 w-4 text-red-500" /><strong>{absent}</strong> Absents</span>
+                <span className="flex items-center gap-1.5"><CheckCircle className="h-4 w-4 text-[#6d28d9]" /><strong>{justified}</strong> Justifiés</span>
                 <span className="flex items-center gap-1.5 text-muted-foreground"><strong>{unmarked}</strong> Non marqués</span>
               </div>
               <div className="flex items-center gap-2 flex-wrap">
@@ -478,6 +500,8 @@ const PHONE_PREFIX = "213"; // Algerian prefix by default
                         onClick={() => markOne(st.id, "late")} />
                       <StatusPill label="A" title="Absent" active={st.status === "absent"} color="red"
                         onClick={() => markOne(st.id, "absent")} />
+                      <StatusPill label="J" title="Absence justifiée" active={st.status === "justified"} color="purple"
+                        onClick={() => markOne(st.id, "justified")} />
                     </>
                   )}
                   {!canMark && (
@@ -531,6 +555,7 @@ function StatusPill({ label, title, active, color, onClick }: {
     emerald: { base: "border-emerald-200 text-emerald-600 hover:bg-emerald-500/10", active: "bg-emerald-500 text-white border-emerald-500" },
     amber: { base: "border-amber-200 text-amber-600 hover:bg-amber-500/10", active: "bg-amber-500 text-white border-amber-500" },
     red: { base: "border-red-200 text-red-600 hover:bg-red-500/10", active: "bg-red-500 text-white border-red-500" },
+    purple: { base: "border-[#6d28d9]/30 text-[#6d28d9] hover:bg-[#6d28d9]/10", active: "bg-[#6d28d9] text-white border-[#6d28d9]" },
   };
   const c = colors[color] ?? { base: "", active: "" };
   return (

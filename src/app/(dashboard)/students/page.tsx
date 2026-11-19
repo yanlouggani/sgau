@@ -22,7 +22,7 @@ export default async function StudentsPage() {
 
   const { data: groups } = await supabase
     .from("groups")
-    .select("id, name, modules(name)")
+    .select("id, name, moduleid, modules(id, name, monthly_price, level_name)")
     .eq("isactive", true)
     .order("name");
 
@@ -52,14 +52,21 @@ export default async function StudentsPage() {
     parent_name: (u.parent_name as string) ?? null,
     parent_phone: (u.parent_phone as string) ?? null,
     billing_notes: (u.billing_notes as string) ?? null,
+    photo_url: (u.photo_url as string) ?? (u.avatar_url as string) ?? null,
     enrollments: enrollmentMap[u.id as string] ?? [],
   }));
 
-  const formattedGroups = (groups ?? []).map((g: Record<string, unknown>) => ({
-    id: g.id as string,
-    name: g.name as string,
-    moduleName: ((g.modules as Record<string, unknown>)?.["name"] as string) ?? "",
-  }));
+  const formattedGroups = (groups ?? []).map((g: Record<string, unknown>) => {
+    const mod = g.modules as Record<string, unknown> | null;
+    return {
+      id: g.id as string,
+      name: g.name as string,
+      moduleId: (g.moduleid as string) ?? (mod?.["id"] as string) ?? "",
+      moduleName: ((mod?.["name"] as string) ?? ""),
+      monthlyPrice: (mod?.["monthly_price"] as number) ?? null,
+      levelName: (mod?.["level_name"] as string) ?? null,
+    };
+  });
 
   return <StudentsManagement initialStudents={formattedStudents} groups={formattedGroups} />;
 }

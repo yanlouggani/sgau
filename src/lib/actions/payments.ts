@@ -3,6 +3,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { requireRole } from "@/lib/auth-helpers";
 import { todayLocal } from "@/lib/dates";
+import { computePaymentStatus } from "@/lib/pricing";
 import { revalidatePath } from "next/cache";
 import type {
   StudentPayment,
@@ -15,7 +16,7 @@ import type {
 } from "@/types/database";
 
 /* ------------------------------------------------------------------
- * Helpers de calcul de statut
+ * Helpers de calcul de statut & parsing
  * ------------------------------------------------------------------ */
 
 function computeStatus(
@@ -23,21 +24,17 @@ function computeStatus(
   amountPaid: number,
   dueDate: string
 ): PaymentStatus {
-  const due = Number(amountDue) || 0;
-  const paid = Number(amountPaid) || 0;
+  return computePaymentStatus(amountDue, amountPaid, dueDate);
+}
 
-  if (paid >= due && due > 0) {
-    return "paid";
+function normalizePaymentMethod(method: unknown): "cash" | "transfer" | "check" {
+  if (method === "transfer" || method === "bank_transfer" || method === "baridimob" || method === "ccp") {
+    return "transfer";
   }
-
-  const today = todayLocal();
-  const isOverdue = dueDate ? today > dueDate : false;
-
-  if (paid > 0 && paid < due) {
-    return isOverdue ? "late" : "partial";
+  if (method === "check") {
+    return "check";
   }
-
-  return isOverdue ? "late" : "unpaid";
+  return "cash";
 }
 
 function extractUser(
@@ -132,11 +129,10 @@ export async function getStudentPaymentsAction(filters?: {
 
     const payments: StudentPayment[] = (data || []).map((row: Record<string, unknown>) => {
       const user = extractUser(row.users);
-      const status = computeStatus(
-        Number(row.amount_due),
-        Number(row.amount_paid),
-        String(row.due_date)
-      );
+      const amountDue = Math.max(0, Number(row.amount_due) || 0);
+      const amountPaid = Math.max(0, Number(row.amount_paid) || 0);
+      const dueDate = row.due_date ? String(row.due_date) : todayLocal();
+      const status = computeStatus(amountDue, amountPaid, dueDate);
 
       return {
         id: String(row.id),
@@ -145,21 +141,21 @@ export async function getStudentPaymentsAction(filters?: {
         studentEmail: user?.email || "",
         parentName: user?.parent_name,
         parentPhone: user?.parent_phone,
-        billing_period: String(row.billing_period),
-        amount_due: Number(row.amount_due),
-        amount_paid: Number(row.amount_paid),
-        due_date: String(row.due_date),
+        billing_period: String(row.billing_period || ""),
+        amount_due: amountDue,
+        amount_paid: amountPaid,
+        due_date: dueDate,
         paid_at: row.paid_at ? String(row.paid_at) : null,
         payment_method: (row.payment_method as PaymentMethod) || "cash",
         status,
         notes: row.notes ? String(row.notes) : null,
-        created_at: String(row.created_at),
-        updated_at: String(row.updated_at),
+        created_at: String(row.created_at || ""),
+        updated_at: String(row.updated_at || ""),
       };
     });
 
     if (filters?.search) {
-      const q = filters.search.toLowerCase();
+      const q = filters.search.toLowerCase().trim();
       return {
         ok: true,
         data: payments.filter(
@@ -169,6 +165,90 @@ export async function getStudentPaymentsAction(filters?: {
         ),
       };
     }
+
+    return { ok: true, data: payments };
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : "Erreur inattendue";
+    return { ok: false, error: message };
+  }
+}
+
+/**
+ * Récupère tous les encaissements en espèces effectués à une date donnée (par défaut aujourd'hui)
+ * Indépendant du filtre de période mensuelle sélectionnée (garantit un Z de Caisse exhaustif).
+ */
+export async function getTodayCashReceiptsAction(
+  targetDate?: string
+): Promise<{ ok: boolean; data?: StudentPayment[]; error?: string }> {
+  try {
+    const supabase = await createClient();
+    const dateStr = targetDate || todayLocal();
+
+    const { data, error } = await supabase
+      .from("student_payments")
+      .select(`
+        id,
+        student_id,
+        billing_period,
+        amount_due,
+        amount_paid,
+        due_date,
+        paid_at,
+        payment_method,
+        status,
+        notes,
+        created_at,
+        updated_at,
+        users:student_id (
+          id,
+          firstname,
+          lastname,
+          email,
+          parent_name,
+          parent_phone
+        )
+      `)
+      .eq("payment_method", "cash")
+      .gt("amount_paid", 0)
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      console.error("Error fetching cash receipts:", error);
+      return { ok: false, error: error.message };
+    }
+
+    const todayRows = (data || []).filter((row: Record<string, unknown>) => {
+      const paidAt = row.paid_at ? String(row.paid_at) : "";
+      const createdAt = row.created_at ? String(row.created_at) : "";
+      return paidAt.startsWith(dateStr) || createdAt.startsWith(dateStr);
+    });
+
+    const payments: StudentPayment[] = todayRows.map((row: Record<string, unknown>) => {
+      const user = extractUser(row.users);
+      const amountDue = Math.max(0, Number(row.amount_due) || 0);
+      const amountPaid = Math.max(0, Number(row.amount_paid) || 0);
+      const dueDate = row.due_date ? String(row.due_date) : todayLocal();
+      const status = computeStatus(amountDue, amountPaid, dueDate);
+
+      return {
+        id: String(row.id),
+        student_id: String(row.student_id),
+        studentName: user ? `${user.firstname || ""} ${user.lastname || ""}`.trim() : "Élève inconnu",
+        studentEmail: user?.email || "",
+        parentName: user?.parent_name,
+        parentPhone: user?.parent_phone,
+        billing_period: String(row.billing_period || ""),
+        amount_due: amountDue,
+        amount_paid: amountPaid,
+        due_date: dueDate,
+        paid_at: row.paid_at ? String(row.paid_at) : null,
+        payment_method: "cash",
+        status,
+        notes: row.notes ? String(row.notes) : null,
+        created_at: String(row.created_at || ""),
+        updated_at: String(row.updated_at || ""),
+      };
+    });
 
     return { ok: true, data: payments };
   } catch (err: unknown) {
@@ -192,25 +272,38 @@ export async function recordStudentPaymentAction(payload: {
 
     await requireRole("admin", "secretary");
 
+    if (!payload.student_id?.trim()) {
+      return { ok: false, error: "Veuillez sélectionner un élève." };
+    }
+    if (!payload.billing_period?.trim()) {
+      return { ok: false, error: "Veuillez indiquer la période de facturation." };
+    }
+
+    const safeAmountDue = Math.max(0, Number(payload.amount_due) || 0);
+    const safeAmountPaid = Math.max(0, Number(payload.amount_paid) || 0);
+    const safeDueDate = payload.due_date?.trim() || todayLocal();
+    const safeMethod = normalizePaymentMethod(payload.payment_method);
+
     const status = computeStatus(
-      payload.amount_due,
-      payload.amount_paid,
-      payload.due_date
+      safeAmountDue,
+      safeAmountPaid,
+      safeDueDate
     );
 
-    const paid_at = payload.amount_paid > 0 ? new Date().toISOString() : null;
+    const nowIso = new Date().toISOString();
+    const paid_at = safeAmountPaid > 0 ? nowIso : null;
 
     const rowData = {
-      student_id: payload.student_id,
-      billing_period: payload.billing_period,
-      amount_due: payload.amount_due,
-      amount_paid: payload.amount_paid,
-      due_date: payload.due_date,
-      payment_method: payload.payment_method,
+      student_id: payload.student_id.trim(),
+      billing_period: payload.billing_period.trim(),
+      amount_due: safeAmountDue,
+      amount_paid: safeAmountPaid,
+      due_date: safeDueDate,
+      payment_method: safeMethod,
       status,
       paid_at,
-      notes: payload.notes || null,
-      updated_at: new Date().toISOString(),
+      notes: payload.notes?.trim() || null,
+      updated_at: nowIso,
     };
 
     let result;
@@ -225,19 +318,21 @@ export async function recordStudentPaymentAction(payload: {
       // Vérifier si un enregistrement existe déjà pour cet élève et cette période
       const { data: existing } = await supabase
         .from("student_payments")
-        .select("id, amount_paid")
-        .eq("student_id", payload.student_id)
-        .eq("billing_period", payload.billing_period)
+        .select("id, amount_paid, paid_at")
+        .eq("student_id", payload.student_id.trim())
+        .eq("billing_period", payload.billing_period.trim())
         .maybeSingle();
 
       if (existing?.id) {
-        const newAmountPaid = (existing.amount_paid || 0) + payload.amount_paid;
-        const newStatus = computeStatus(payload.amount_due, newAmountPaid, payload.due_date);
+        const newAmountPaid = (Number(existing.amount_paid) || 0) + safeAmountPaid;
+        const newStatus = computeStatus(safeAmountDue, newAmountPaid, safeDueDate);
+        const newPaidAt = newAmountPaid > 0 ? (existing.paid_at || nowIso) : null;
         result = await supabase
           .from("student_payments")
           .update({
             ...rowData,
             amount_paid: newAmountPaid,
+            paid_at: newPaidAt,
             status: newStatus,
           })
           .eq("id", existing.id)
@@ -248,7 +343,7 @@ export async function recordStudentPaymentAction(payload: {
           .from("student_payments")
           .insert({
             ...rowData,
-            created_at: new Date().toISOString(),
+            created_at: nowIso,
           })
           .select()
           .single();
@@ -277,13 +372,17 @@ export async function getStudentFinancialFileAction(studentId: string): Promise<
   error?: string;
 }> {
   try {
+    if (!studentId?.trim()) {
+      return { ok: false, error: "Identifiant élève manquant." };
+    }
+
     const supabase = await createClient();
 
     // 1. Informations de l'élève
     const { data: user, error: userErr } = await supabase
       .from("users")
       .select("id, firstname, lastname, email, parent_name, parent_phone, billing_notes, isactive")
-      .eq("id", studentId)
+      .eq("id", studentId.trim())
       .maybeSingle();
 
     if (userErr || !user) {
@@ -432,13 +531,11 @@ export async function getStudentFinancialFileAction(studentId: string): Promise<
 
     const remainingBalance = Math.max(0, totalBilled - totalPaid);
     const overallStatus: PaymentStatus =
-      totalPaid >= totalBilled && totalBilled > 0
+      totalPaid >= totalBilled
         ? "paid"
         : totalPaid > 0
         ? "partial"
-        : totalBilled > 0
-        ? "unpaid"
-        : "paid";
+        : "unpaid";
 
     return {
       ok: true,
@@ -610,80 +707,134 @@ export async function generateMonthlyProfessorPaymentsAction(
         rateApplied = Number(prof.hourly_rate) || 0;
 
         // Décompte des heures d'après les séances réelles ou planifiées
-        // Chercher d'abord dans sessions
-        const { data: sessionsData } = await supabase
+        // Chercher d'abord dans sessions avec noms de colonnes SQL robustes
+        let { data: sessionsData, error: sErr } = await supabase
           .from("sessions")
-          .select("id, sessionDate, startTime, endTime, moduleName, groupName")
-          .eq("professorId", prof.id);
+          .select(`
+            id,
+            sessiondate,
+            starttime,
+            endtime,
+            status,
+            groupid,
+            groups (
+              name,
+              modules (name)
+            )
+          `)
+          .eq("professorid", prof.id)
+          .neq("status", "CANCELLED");
+
+        if (sErr) {
+          // Fallback si la colonne en base est camelCase professorId
+          const res = await supabase
+            .from("sessions")
+            .select(`
+              id,
+              sessiondate,
+              starttime,
+              endtime,
+              status,
+              groupid,
+              groups (
+                name,
+                modules (name)
+              )
+            `)
+            .eq("professorId", prof.id)
+            .neq("status", "CANCELLED");
+          sessionsData = res.data;
+        }
 
         const periodSessions = (sessionsData || []).filter(
-          (s: { sessionDate?: string }) => {
-            if (!s.sessionDate) return false;
+          (s: any) => {
+            const sDate = String(s.sessiondate || s.sessionDate || "");
+            if (!sDate) return false;
             if (startDate && endDate) {
-              return s.sessionDate >= startDate && s.sessionDate <= endDate;
+              return sDate >= startDate && sDate <= endDate;
             }
-            return s.sessionDate.startsWith(billingPeriod);
+            return sDate.startsWith(billingPeriod);
           }
         );
 
         let totalHours = 0;
-        const sessionsList = periodSessions.map(
-          (s: {
-            sessionDate: string;
-            startTime: string;
-            endTime: string;
-            moduleName?: string;
-            groupName?: string;
-          }) => {
-            const [sh, sm] = (s.startTime || "00:00").split(":").map(Number);
-            const [eh, em] = (s.endTime || "01:30").split(":").map(Number);
-            const duration = Math.max(0.5, (eh * 60 + em - (sh * 60 + sm)) / 60);
-            totalHours += duration;
-            return {
-              date: s.sessionDate,
-              startTime: s.startTime,
-              endTime: s.endTime,
-              moduleName: s.moduleName || "Matière",
-              groupName: s.groupName || "Classe",
-              durationHours: duration,
-            };
-          }
-        );
+        const sessionsList = periodSessions.map((s: any) => {
+          const sDate = String(s.sessiondate || s.sessionDate || "");
+          const startTimeStr = String(s.starttime || s.startTime || "00:00");
+          const endTimeStr = String(s.endtime || s.endTime || "01:30");
+          const [sh, sm] = startTimeStr.split(":").map(Number);
+          const [eh, em] = endTimeStr.split(":").map(Number);
+          const sMin = (isNaN(sh) ? 0 : sh) * 60 + (isNaN(sm) ? 0 : sm);
+          const eMin = (isNaN(eh) ? 1 : eh) * 60 + (isNaN(em) ? 30 : em);
+          const diffMinutes = eMin - sMin;
+          const duration = diffMinutes > 0 ? Math.max(0.5, diffMinutes / 60) : 1.5;
+          totalHours += duration;
+          const grp = s.groups as any;
+          return {
+            date: sDate,
+            startTime: startTimeStr,
+            endTime: endTimeStr,
+            moduleName: grp?.modules?.name || "Matière",
+            groupName: grp?.name || "Classe",
+            durationHours: duration,
+          };
+        });
 
         // Si aucune séance enregistrée dans `sessions`, estimer à partir de `session_masters`
         if (sessionsList.length === 0) {
           const { data: masters } = await supabase
             .from("session_masters")
-            .select("id, startTime, endTime, weekday, moduleid, groupid")
+            .select(`
+              id,
+              starttime,
+              endtime,
+              weekday,
+              moduleid,
+              groupid,
+              groups (
+                name,
+                modules (name)
+              )
+            `)
             .eq("professorid", prof.id)
             .eq("status", "active");
 
           if (masters && masters.length > 0) {
-            for (const m of masters) {
-              const [sh, sm] = (m.startTime || "00:00").split(":").map(Number);
-              const [eh, em] = (m.endTime || "01:30").split(":").map(Number);
-              const duration = Math.max(0.5, (eh * 60 + em - (sh * 60 + sm)) / 60);
+            for (const m of masters as any[]) {
+              const startTimeStr = String(m.starttime || m.startTime || "00:00");
+              const endTimeStr = String(m.endtime || m.endTime || "01:30");
+              const [sh, sm] = startTimeStr.split(":").map(Number);
+              const [eh, em] = endTimeStr.split(":").map(Number);
+              const sMin = (isNaN(sh) ? 0 : sh) * 60 + (isNaN(sm) ? 0 : sm);
+              const eMin = (isNaN(eh) ? 1 : eh) * 60 + (isNaN(em) ? 30 : em);
+              const diffMinutes = eMin - sMin;
+              const duration = diffMinutes > 0 ? Math.max(0.5, diffMinutes / 60) : 1.5;
 
               let occurrencesCount = 4;
               if (startDate && endDate) {
-                occurrencesCount = 0;
                 const cur = new Date(startDate + "T00:00:00");
                 const end = new Date(endDate + "T23:59:59");
-                while (cur <= end) {
-                  if (cur.getDay() === m.weekday) occurrencesCount++;
-                  cur.setDate(cur.getDate() + 1);
+                if (isNaN(cur.getTime()) || isNaN(end.getTime()) || cur > end) {
+                  occurrencesCount = 4;
+                } else {
+                  occurrencesCount = 0;
+                  while (cur <= end) {
+                    if (cur.getDay() === Number(m.weekday)) occurrencesCount++;
+                    cur.setDate(cur.getDate() + 1);
+                  }
+                  occurrencesCount = Math.max(1, occurrencesCount);
                 }
-                occurrencesCount = Math.max(1, occurrencesCount);
               }
 
               const monthHours = duration * occurrencesCount;
               totalHours += monthHours;
+              const grp = m.groups as any;
               sessionsList.push({
                 date: startDate && endDate ? `Du ${startDate} au ${endDate} (${occurrencesCount} séances)` : `${billingPeriod} (Régulier)`,
-                startTime: m.startTime,
-                endTime: m.endTime,
-                moduleName: "Séance hebdomadaire",
-                groupName: "Groupe assigné",
+                startTime: startTimeStr,
+                endTime: endTimeStr,
+                moduleName: grp?.modules?.name || "Séance hebdomadaire",
+                groupName: grp?.name || "Groupe assigné",
                 durationHours: monthHours,
               });
             }
@@ -692,7 +843,7 @@ export async function generateMonthlyProfessorPaymentsAction(
 
         breakdown.sessions = sessionsList;
         breakdown.totalHours = totalHours;
-        totalAmount = Math.round(totalHours * rateApplied);
+        totalAmount = Math.max(0, Math.round(totalHours * rateApplied));
       } else {
         // Mode pourcentage
         rateApplied = Number(prof.percentage_rate) || 0;
@@ -748,21 +899,23 @@ export async function generateMonthlyProfessorPaymentsAction(
 
             for (const sp of payments || []) {
               const u = extractUser(sp.users);
-              const paid = Number(sp.amount_paid) || 0;
-              totalCollected += paid;
-              studentCollections.push({
-                studentId: sp.student_id,
-                studentName: u ? `${u.firstname || ""} ${u.lastname || ""}`.trim() : "Élève",
-                groupName: "Classe de soutien",
-                amountPaid: paid,
-              });
+              const paid = Math.max(0, Number(sp.amount_paid) || 0);
+              if (paid > 0) {
+                totalCollected += paid;
+                studentCollections.push({
+                  studentId: sp.student_id,
+                  studentName: u ? `${u.firstname || ""} ${u.lastname || ""}`.trim() : "Élève",
+                  groupName: "Classe de soutien",
+                  amountPaid: paid,
+                });
+              }
             }
           }
         }
 
         breakdown.studentCollections = studentCollections;
         breakdown.totalCollected = totalCollected;
-        totalAmount = Math.round((totalCollected * rateApplied) / 100);
+        totalAmount = Math.max(0, Math.round((totalCollected * rateApplied) / 100));
       }
 
       // Upsert du décompte
@@ -815,6 +968,13 @@ export async function updateProfessorPaymentStatusAction(
   notes?: string
 ): Promise<{ ok: boolean; error?: string }> {
   try {
+    if (!paymentId?.trim()) {
+      return { ok: false, error: "Identifiant de paiement manquant." };
+    }
+    if (!["draft", "validated", "paid"].includes(status)) {
+      return { ok: false, error: "Statut de rémunération invalide." };
+    }
+
     const supabase = await createClient();
 
     await requireRole("admin", "secretary");

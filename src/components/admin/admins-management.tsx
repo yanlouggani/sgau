@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { createClient } from "@/lib/supabase/browser";
 import { MascotHeader } from "@/components/mascot/MascotHeader";
 import { Mascot } from "@/components/mascot/Mascot";
 import { EmptyState } from "@/components/mascot/EmptyState";
@@ -41,7 +40,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import {
   DropdownMenu,
@@ -50,9 +48,24 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Search, Plus, MoreHorizontal, Edit, Trash2, Loader2, Shield, UserCheck } from "lucide-react";
+import {
+  Search,
+  Plus,
+  MoreHorizontal,
+  Edit,
+  Trash2,
+  Loader2,
+  KeyRound,
+  Eye,
+  EyeOff,
+} from "lucide-react";
 import { toast } from "sonner";
-import { createUserAction, updateUserAuthAction } from "@/lib/actions/admin-users";
+import {
+  createUserAction,
+  updateUserAction,
+  deleteUserAction,
+} from "@/lib/actions/admin-users";
+import { generateSecureTempPassword } from "@/lib/user-auth-utils";
 
 type AdminUser = {
   id: string;
@@ -65,7 +78,13 @@ type AdminUser = {
   isactive: boolean;
 };
 
-export function AdminsManagement({ initialAdmins }: { initialAdmins: AdminUser[] }) {
+export function AdminsManagement({
+  initialAdmins,
+  currentUserId,
+}: {
+  initialAdmins: AdminUser[];
+  currentUserId?: string;
+}) {
   const [admins, setAdmins] = useState<AdminUser[]>(
     initialAdmins.map((a) => ({
       ...a,
@@ -81,6 +100,7 @@ export function AdminsManagement({ initialAdmins }: { initialAdmins: AdminUser[]
   const [deleteTarget, setDeleteTarget] = useState<AdminUser | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const [form, setForm] = useState<{
     email: string;
     password: string;
@@ -96,13 +116,21 @@ export function AdminsManagement({ initialAdmins }: { initialAdmins: AdminUser[]
     role: "admin",
     isactive: true,
   });
-  const supabase = createClient();
 
   const openAdd = () => {
     setEditing(null);
-    setForm({ email: "", password: "", firstname: "", lastname: "", role: "admin", isactive: true });
+    setForm({
+      email: "",
+      password: "",
+      firstname: "",
+      lastname: "",
+      role: "admin",
+      isactive: true,
+    });
+    setShowPassword(false);
     setDialogOpen(true);
   };
+
   const openEdit = (a: AdminUser) => {
     setEditing(a);
     setForm({
@@ -113,37 +141,64 @@ export function AdminsManagement({ initialAdmins }: { initialAdmins: AdminUser[]
       role: a.role,
       isactive: a.isactive,
     });
+    setShowPassword(false);
     setDialogOpen(true);
   };
 
+  const generateRandomPassword = () => {
+    const pass = generateSecureTempPassword();
+    setForm((prev) => ({ ...prev, password: pass }));
+    setShowPassword(true);
+    toast.info("Mot de passe sécurisé généré", {
+      description: pass,
+      action: {
+        label: "Copier",
+        onClick: () => {
+          navigator.clipboard.writeText(pass);
+          toast.success("Mot de passe copié !");
+        },
+      },
+    });
+  };
+
   const handleSave = async () => {
+    if (!form.firstname.trim() || !form.lastname.trim()) {
+      toast.error("Veuillez saisir le prénom et le nom.");
+      return;
+    }
+    if (!form.email.trim() || !form.email.includes("@")) {
+      toast.error("Veuillez saisir une adresse email valide.");
+      return;
+    }
+    if (form.password && form.password.trim().length > 0 && form.password.trim().length < 8) {
+      toast.error("Le mot de passe doit comporter au moins 8 caractères.");
+      return;
+    }
+
     setSaving(true);
     try {
       if (editing) {
-        const upd: Record<string, unknown> = {
-          email: form.email,
-          firstname: form.firstname,
-          lastname: form.lastname,
+        await updateUserAction({
+          id: editing.id,
+          email: form.email.trim().toLowerCase(),
+          firstname: form.firstname.trim(),
+          lastname: form.lastname.trim(),
           role: form.role,
-          isactive: form.isactive,
-        };
-        await supabase.from("users").update(upd).eq("id", editing.id);
-        
-        if (form.password) {
-          await updateUserAuthAction({ id: editing.id, password: form.password });
-        }
+          isActive: form.isactive,
+          password: form.password.trim().length >= 8 ? form.password.trim() : undefined,
+        });
 
         setAdmins((prev) =>
           prev.map((a) =>
             a.id === editing.id
               ? {
                   ...a,
-                  email: form.email,
-                  firstname: form.firstname,
-                  lastname: form.lastname,
+                  email: form.email.trim().toLowerCase(),
+                  firstname: form.firstname.trim(),
+                  lastname: form.lastname.trim(),
                   role: form.role,
-                  fullName: `${form.firstname} ${form.lastname}`,
-                  initials: `${(form.firstname[0] ?? "").toUpperCase()}${(form.lastname[0] ?? "").toUpperCase()}`,
+                  fullName: `${form.firstname.trim()} ${form.lastname.trim()}`,
+                  initials: `${(form.firstname.trim()[0] ?? "").toUpperCase()}${(form.lastname.trim()[0] ?? "").toUpperCase()}`,
                   isactive: form.isactive,
                 }
               : a
@@ -151,58 +206,71 @@ export function AdminsManagement({ initialAdmins }: { initialAdmins: AdminUser[]
         );
         toast.success("Utilisateur mis à jour");
       } else {
-        const { user: createdUser } = await createUserAction({
-          email: form.email,
-          password: form.password,
-          firstname: form.firstname,
-          lastname: form.lastname,
+        const res = await createUserAction({
+          email: form.email.trim().toLowerCase(),
+          password: form.password.trim() ? form.password.trim() : undefined,
+          firstname: form.firstname.trim(),
+          lastname: form.lastname.trim(),
           role: form.role,
+          isActive: form.isactive,
         });
-        if (!createdUser) throw new Error("Échec de la création");
 
-        const { data: newUser } = await supabase
-          .from("users")
-          .select("*")
-          .eq("id", createdUser.id)
-          .maybeSingle();
+        if (!res.user) throw new Error("Échec de la création");
 
-        if (newUser) {
-          const u = newUser as Record<string, unknown>;
-          setAdmins((prev) => [
-            {
-              id: u.id as string,
-              email: u.email as string,
-              firstname: u.firstname as string,
-              lastname: u.lastname as string,
-              role: form.role,
-              fullName: `${u.firstname as string} ${u.lastname as string}`,
-              initials: `${((u.firstname as string)?.[0] ?? "").toUpperCase()}${((u.lastname as string)?.[0] ?? "").toUpperCase()}`,
-              isactive: u.isactive as boolean,
-            },
-            ...prev,
-          ]);
+        setAdmins((prev) => [
+          {
+            id: res.user!.id,
+            email: form.email.trim().toLowerCase(),
+            firstname: form.firstname.trim(),
+            lastname: form.lastname.trim(),
+            role: form.role,
+            fullName: `${form.firstname.trim()} ${form.lastname.trim()}`,
+            initials: `${(form.firstname.trim()[0] ?? "").toUpperCase()}${(form.lastname.trim()[0] ?? "").toUpperCase()}`,
+            isactive: form.isactive,
+          },
+          ...prev,
+        ]);
+
+        if (res.tempPassword) {
+          toast.success("Compte créé avec succès", {
+            description: `Mot de passe temporaire : ${res.tempPassword}`,
+            duration: 12000,
+          });
+        } else {
+          toast.success("Compte créé avec succès");
         }
-        toast.success("Compte créé avec succès");
       }
       setDialogOpen(false);
     } catch (err) {
-      toast.error("Erreur", { description: String(err) });
+      toast.error("Erreur", {
+        description: err instanceof Error ? err.message : String(err),
+      });
+    } finally {
+      setSaving(false);
     }
-    setSaving(false);
   };
 
   const confirmDelete = async () => {
     if (!deleteTarget) return;
+
+    if (currentUserId && deleteTarget.id === currentUserId) {
+      toast.error("Action impossible", {
+        description: "Vous ne pouvez pas supprimer votre propre compte.",
+      });
+      setDeleteTarget(null);
+      return;
+    }
+
     setDeleting(true);
     try {
-      const { error } = await supabase.rpc("admin_delete_user", { p_uid: deleteTarget.id });
-      if (error) {
-        toast.error("Erreur", { description: error.message });
-        return;
-      }
+      await deleteUserAction({ id: deleteTarget.id });
       setAdmins((prev) => prev.filter((x) => x.id !== deleteTarget.id));
       toast.success("Administrateur supprimé");
       setDeleteTarget(null);
+    } catch (err) {
+      toast.error("Erreur de suppression", {
+        description: err instanceof Error ? err.message : String(err),
+      });
     } finally {
       setDeleting(false);
     }
@@ -327,18 +395,20 @@ export function AdminsManagement({ initialAdmins }: { initialAdmins: AdminUser[]
                         <DropdownMenuContent align="end" className="w-44 rounded-2xl p-1.5 shadow-xl">
                           <DropdownMenuItem
                             onClick={() => openEdit(a)}
-                            className="rounded-xl text-xs font-semibold"
+                            className="rounded-xl text-xs font-semibold cursor-pointer"
                           >
                             <Edit className="mr-2 h-4 w-4 text-[#6d28d9]" />
                             Modifier
                           </DropdownMenuItem>
-                          <DropdownMenuItem
-                            className="rounded-xl text-xs font-semibold text-rose-600 focus:bg-rose-50"
-                            onClick={() => setDeleteTarget(a)}
-                          >
-                            <Trash2 className="mr-2 h-4 w-4" />
-                            Supprimer
-                          </DropdownMenuItem>
+                          {(!currentUserId || a.id !== currentUserId) && (
+                            <DropdownMenuItem
+                              className="rounded-xl text-xs font-semibold text-rose-600 focus:bg-rose-50 cursor-pointer"
+                              onClick={() => setDeleteTarget(a)}
+                            >
+                              <Trash2 className="mr-2 h-4 w-4" />
+                              Supprimer
+                            </DropdownMenuItem>
+                          )}
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </TableCell>
@@ -373,7 +443,7 @@ export function AdminsManagement({ initialAdmins }: { initialAdmins: AdminUser[]
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <Label htmlFor="admin-first" className="text-xs font-bold text-[#1a1a2e]">
-                  Prénom
+                  Prénom *
                 </Label>
                 <Input
                   id="admin-first"
@@ -385,7 +455,7 @@ export function AdminsManagement({ initialAdmins }: { initialAdmins: AdminUser[]
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="admin-last" className="text-xs font-bold text-[#1a1a2e]">
-                  Nom
+                  Nom *
                 </Label>
                 <Input
                   id="admin-last"
@@ -399,7 +469,7 @@ export function AdminsManagement({ initialAdmins }: { initialAdmins: AdminUser[]
 
             <div className="space-y-1.5">
               <Label htmlFor="admin-email" className="text-xs font-bold text-[#1a1a2e]">
-                Adresse email
+                Adresse email *
               </Label>
               <Input
                 id="admin-email"
@@ -440,33 +510,56 @@ export function AdminsManagement({ initialAdmins }: { initialAdmins: AdminUser[]
             </div>
 
             <div className="space-y-1.5">
-              <Label htmlFor="admin-password" className="text-xs font-bold text-[#1a1a2e]">
-                {editing ? "Nouveau mot de passe" : "Mot de passe"}
-              </Label>
-              <Input
-                id="admin-password"
-                type="password"
-                value={form.password}
-                onChange={(e) => setForm({ ...form, password: e.target.value })}
-                placeholder={editing ? "Laisser vide si inchangé" : "Mot de passe sécurisé"}
-                className="rounded-xl border-[#6d28d9]/10 text-xs"
-              />
+              <div className="flex items-center justify-between">
+                <Label htmlFor="admin-password" className="text-xs font-bold text-[#1a1a2e]">
+                  {editing ? "Nouveau mot de passe" : "Mot de passe"}
+                </Label>
+                <button
+                  type="button"
+                  onClick={generateRandomPassword}
+                  className="inline-flex items-center gap-1 text-[11px] font-bold text-[#6d28d9] hover:underline cursor-pointer"
+                >
+                  <KeyRound className="h-3 w-3" />
+                  Générer automatiquement
+                </button>
+              </div>
+              <div className="relative">
+                <Input
+                  id="admin-password"
+                  type={showPassword ? "text" : "password"}
+                  value={form.password}
+                  onChange={(e) => setForm({ ...form, password: e.target.value })}
+                  placeholder={
+                    editing
+                      ? "Laisser vide si inchangé (min. 8 caractères)"
+                      : "Min. 8 caractères (laisser vide pour auto-générer)"
+                  }
+                  className="rounded-xl border-[#6d28d9]/10 text-xs pr-10"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  aria-label={showPassword ? "Masquer le mot de passe" : "Afficher le mot de passe"}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[#475569] hover:text-[#6d28d9] transition-colors cursor-pointer"
+                  tabIndex={-1}
+                >
+                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
             </div>
 
-            {editing && (
-              <div className="flex items-center gap-2 pt-2">
-                <input
-                  type="checkbox"
-                  id="admin-active"
-                  checked={form.isactive}
-                  onChange={(e) => setForm({ ...form, isactive: e.target.checked })}
-                  className="rounded border-[#6d28d9]/20 text-[#6d28d9] focus:ring-[#6d28d9]"
-                />
-                <Label htmlFor="admin-active" className="text-xs font-semibold text-[#1a1a2e]">
-                  Compte actif
-                </Label>
-              </div>
-            )}
+            <div className="flex items-center gap-2 pt-2">
+              <input
+                type="checkbox"
+                id="admin-active"
+                checked={form.isactive}
+                onChange={(e) => setForm({ ...form, isactive: e.target.checked })}
+                className="rounded border-[#6d28d9]/20 text-[#6d28d9] focus:ring-[#6d28d9] cursor-pointer"
+              />
+              <Label htmlFor="admin-active" className="text-xs font-semibold text-[#1a1a2e] cursor-pointer">
+                Compte actif
+              </Label>
+            </div>
           </div>
 
           <DialogFooter className="gap-2 sm:gap-0">
@@ -495,7 +588,7 @@ export function AdminsManagement({ initialAdmins }: { initialAdmins: AdminUser[]
           <AlertDialogHeader>
             <AlertDialogTitle>Supprimer cet administrateur ?</AlertDialogTitle>
             <AlertDialogDescription>
-              Êtes-vous sûr de vouloir supprimer définitivement le compte administrateur de{" "}
+              Êtes-vous sûr de vouloir supprimer définitivement le compte de{" "}
               <strong className="text-[#1a1a2e] font-semibold">{deleteTarget?.fullName}</strong> ({deleteTarget?.email}) ?
               Cette action est irréversible.
             </AlertDialogDescription>
