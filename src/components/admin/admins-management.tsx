@@ -9,6 +9,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   Table,
   TableBody,
   TableCell,
@@ -52,7 +59,7 @@ type AdminUser = {
   email: string;
   firstname: string;
   lastname: string;
-  role: "admin";
+  role: "admin" | "secretary" | "professor" | "student";
   fullName: string;
   initials: string;
   isactive: boolean;
@@ -74,18 +81,26 @@ export function AdminsManagement({ initialAdmins }: { initialAdmins: AdminUser[]
   const [deleteTarget, setDeleteTarget] = useState<AdminUser | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [form, setForm] = useState({
+  const [form, setForm] = useState<{
+    email: string;
+    password: string;
+    firstname: string;
+    lastname: string;
+    role: "admin" | "secretary" | "professor" | "student";
+    isactive: boolean;
+  }>({
     email: "",
     password: "",
     firstname: "",
     lastname: "",
+    role: "admin",
     isactive: true,
   });
   const supabase = createClient();
 
   const openAdd = () => {
     setEditing(null);
-    setForm({ email: "", password: "", firstname: "", lastname: "", isactive: true });
+    setForm({ email: "", password: "", firstname: "", lastname: "", role: "admin", isactive: true });
     setDialogOpen(true);
   };
   const openEdit = (a: AdminUser) => {
@@ -95,6 +110,7 @@ export function AdminsManagement({ initialAdmins }: { initialAdmins: AdminUser[]
       password: "",
       firstname: a.firstname,
       lastname: a.lastname,
+      role: a.role,
       isactive: a.isactive,
     });
     setDialogOpen(true);
@@ -108,7 +124,7 @@ export function AdminsManagement({ initialAdmins }: { initialAdmins: AdminUser[]
           email: form.email,
           firstname: form.firstname,
           lastname: form.lastname,
-          role: "admin",
+          role: form.role,
           isactive: form.isactive,
         };
         await supabase.from("users").update(upd).eq("id", editing.id);
@@ -125,6 +141,7 @@ export function AdminsManagement({ initialAdmins }: { initialAdmins: AdminUser[]
                   email: form.email,
                   firstname: form.firstname,
                   lastname: form.lastname,
+                  role: form.role,
                   fullName: `${form.firstname} ${form.lastname}`,
                   initials: `${(form.firstname[0] ?? "").toUpperCase()}${(form.lastname[0] ?? "").toUpperCase()}`,
                   isactive: form.isactive,
@@ -132,14 +149,14 @@ export function AdminsManagement({ initialAdmins }: { initialAdmins: AdminUser[]
               : a
           )
         );
-        toast.success("Administrateur mis à jour");
+        toast.success("Utilisateur mis à jour");
       } else {
         const { user: createdUser } = await createUserAction({
           email: form.email,
           password: form.password,
           firstname: form.firstname,
           lastname: form.lastname,
-          role: "admin",
+          role: form.role,
         });
         if (!createdUser) throw new Error("Échec de la création");
 
@@ -157,7 +174,7 @@ export function AdminsManagement({ initialAdmins }: { initialAdmins: AdminUser[]
               email: u.email as string,
               firstname: u.firstname as string,
               lastname: u.lastname as string,
-              role: "admin",
+              role: form.role,
               fullName: `${u.firstname as string} ${u.lastname as string}`,
               initials: `${((u.firstname as string)?.[0] ?? "").toUpperCase()}${((u.lastname as string)?.[0] ?? "").toUpperCase()}`,
               isactive: u.isactive as boolean,
@@ -165,7 +182,7 @@ export function AdminsManagement({ initialAdmins }: { initialAdmins: AdminUser[]
             ...prev,
           ]);
         }
-        toast.success("Administrateur créé avec succès");
+        toast.success("Compte créé avec succès");
       }
       setDialogOpen(false);
     } catch (err) {
@@ -341,12 +358,12 @@ export function AdminsManagement({ initialAdmins }: { initialAdmins: AdminUser[]
               <Mascot pose="validation" size="sm" />
               <div>
                 <DialogTitle className="text-lg font-bold text-[#1a1a2e]">
-                  {editing ? "Modifier l'administrateur" : "Nouveau compte administrateur"}
+                  {editing ? "Modifier l'utilisateur" : "Nouveau compte utilisateur"}
                 </DialogTitle>
                 <DialogDescription className="text-xs text-[#475569]">
                   {editing
-                    ? "Mise à jour des accès et informations personnelles."
-                    : "Création d'un nouvel administrateur système."}
+                    ? "Mise à jour des accès, rôle et informations personnelles."
+                    : "Choisissez le rôle et configurez les accès du compte."}
                 </DialogDescription>
               </div>
             </div>
@@ -392,6 +409,34 @@ export function AdminsManagement({ initialAdmins }: { initialAdmins: AdminUser[]
                 placeholder="admin@itri.dz"
                 className="rounded-xl border-[#6d28d9]/10 text-xs"
               />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-xs font-bold text-[#1a1a2e]">Rôle attribué au compte *</Label>
+              <Select
+                value={form.role}
+                onValueChange={(val) => {
+                  if (val) setForm({ ...form, role: val as "admin" | "secretary" | "professor" | "student" });
+                }}
+              >
+                <SelectTrigger className="rounded-xl border-[#6d28d9]/10 text-xs font-semibold">
+                  <SelectValue placeholder="Sélectionnez un rôle" />
+                </SelectTrigger>
+                <SelectContent className="rounded-2xl border-[#6d28d9]/15 shadow-xl">
+                  <SelectItem value="admin" className="rounded-xl text-xs font-bold text-[#6d28d9]">
+                    🛡️ Administrateur (Accès total)
+                  </SelectItem>
+                  <SelectItem value="secretary" className="rounded-xl text-xs font-bold text-purple-700">
+                    📋 Secrétaire (Inscriptions & Caisse)
+                  </SelectItem>
+                  <SelectItem value="professor" className="rounded-xl text-xs font-bold text-emerald-700">
+                    👨‍🏫 Professeur (Présences & Emploi du temps)
+                  </SelectItem>
+                  <SelectItem value="student" className="rounded-xl text-xs font-bold text-amber-700">
+                    🎓 Élève (Badge QR & Planning)
+                  </SelectItem>
+                </SelectContent>
+              </Select>
             </div>
 
             <div className="space-y-1.5">
