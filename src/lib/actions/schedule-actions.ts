@@ -1,7 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
-import { revalidatePath } from "next/cache";
+import { requireRole } from "@/lib/auth-helpers";
 
 export type ValidateSessionAssignmentResult = {
   valid: boolean;
@@ -77,50 +77,121 @@ export async function validateSessionAssignmentAction(
 }
 
 /**
- * Vérification serveur des conflits pour un créneau donné
+ * Vérification serveur stricte des conflits pour un créneau donné
+ * Empêche les doubles réservations pour l'enseignant, la salle et la classe.
  */
 export async function checkScheduleConflictAction(params: {
-  date: string;
+  date?: string;
   weekday: number;
   startTime: string;
   endTime: string;
-  professorId: string;
-  roomId: string;
+  professorId?: string;
+  roomId?: string;
   groupId: string;
   excludeMasterId?: string;
+  excludeSessionId?: string;
 }): Promise<{ hasConflict: boolean; reason?: string }> {
   try {
+    // Vérification de sécurité
+    await requireRole("admin", "secretary");
+
     const supabase = await createClient();
 
-    // Vérifier les conflits dans session_masters pour le même jour de semaine
-    const { data: masters } = await supabase
+    // 1. Vérification dans les modèles d'emploi du temps (session_masters) pour le même jour de semaine
+    const { data: masters, error: mastersErr } = await supabase
       .from("session_masters")
       .select("id, professorid, roomid, groupid, startTime, endTime, weekday")
       .eq("weekday", params.weekday)
       .eq("status", "active");
 
-    const filtered = (masters || []).filter(
+    if (mastersErr) {
+      console.error("Erreur lecture session_masters:", mastersErr);
+      return {
+        hasConflict: true,
+        reason: "Erreur lors de la vérification des conflits dans le planning récurrent.",
+      };
+    }
+
+    const filteredMasters = (masters || []).filter(
       (m: { id: string }) => !params.excludeMasterId || m.id !== params.excludeMasterId
     );
 
-    for (const m of filtered) {
-      // Vérification de chevauchement temporel
+    for (const m of filteredMasters) {
       const overlap = !(params.endTime <= m.startTime || params.startTime >= m.endTime);
       if (overlap) {
-        if (m.professorid === params.professorId) {
-          return { hasConflict: true, reason: "L'enseignant a déjà une séance prévue sur ce créneau." };
+        if (params.professorId && params.professorId !== "none" && m.professorid === params.professorId) {
+          return {
+            hasConflict: true,
+            reason: "Conflit d'emploi du temps : cet enseignant a déjà un cours prévu sur ce créneau.",
+          };
         }
-        if (m.roomid === params.roomId) {
-          return { hasConflict: true, reason: "La salle est déjà réservée sur ce créneau." };
+        if (params.roomId && params.roomId !== "none" && m.roomid === params.roomId) {
+          return {
+            hasConflict: true,
+            reason: "Conflit d'emploi du temps : cette salle est déjà occupée sur ce créneau.",
+          };
         }
         if (m.groupid === params.groupId) {
-          return { hasConflict: true, reason: "La classe a déjà un cours sur ce créneau." };
+          return {
+            hasConflict: true,
+            reason: "Conflit d'emploi du temps : cette classe a déjà un cours programmé sur ce créneau.",
+          };
+        }
+      }
+    }
+
+    // 2. Si une date exacte est fournie, vérifier aussi les séances ponctuelles (sessions réelles)
+    if (params.date) {
+      const { data: realSessions, error: sessionsErr } = await supabase
+        .from("sessions")
+        .select("id, professorid, roomid, groupid, starttime, endtime, status")
+        .eq("sessiondate", params.date)
+        .neq("status", "CANCELLED");
+
+      if (sessionsErr) {
+        console.error("Erreur lecture sessions:", sessionsErr);
+        return {
+          hasConflict: true,
+          reason: "Erreur lors de la vérification des séances ponctuelles.",
+        };
+      }
+
+      const filteredSessions = (realSessions || []).filter(
+        (s: { id: string }) => !params.excludeSessionId || s.id !== params.excludeSessionId
+      );
+
+      for (const s of filteredSessions) {
+        const overlap = !(params.endTime <= s.starttime || params.startTime >= s.endtime);
+        if (overlap) {
+          if (params.professorId && params.professorId !== "none" && s.professorid === params.professorId) {
+            return {
+              hasConflict: true,
+              reason: "Conflit de séance : l'enseignant dispense déjà une séance réelle à cette date et heure.",
+            };
+          }
+          if (params.roomId && params.roomId !== "none" && s.roomid === params.roomId) {
+            return {
+              hasConflict: true,
+              reason: "Conflit de séance : la salle est déjà réservée pour une séance à cette date et heure.",
+            };
+          }
+          if (s.groupid === params.groupId) {
+            return {
+              hasConflict: true,
+              reason: "Conflit de séance : cette classe a déjà une séance prévue à cette date et heure.",
+            };
+          }
         }
       }
     }
 
     return { hasConflict: false };
-  } catch {
-    return { hasConflict: false };
+  } catch (err) {
+    console.error("Exception checkScheduleConflictAction:", err);
+    // Refus sécurisé (fail-closed)
+    return {
+      hasConflict: true,
+      reason: "Impossible de valider les conflits en raison d'une erreur serveur. Opération refusée par sécurité.",
+    };
   }
 }

@@ -24,6 +24,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import {
@@ -96,6 +106,8 @@ export default function ModulesPage() {
   const [search, setSearch] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<ModuleItem | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<ModuleItem | null>(null);
+  const [deleting, setDeleting] = useState(false);
   const [saving, setSaving] = useState(false);
 
   const [form, setForm] = useState<{
@@ -276,13 +288,15 @@ export default function ModulesPage() {
     }
   };
 
-  const handleDelete = async (r: ModuleItem) => {
-    if (!confirm(`Supprimer la matière "${r.name}" ?`)) return;
+  const confirmDelete = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
     try {
-      const { error: err } = await supabase.from("modules").delete().eq("id", r.id);
+      const { error: err } = await supabase.from("modules").delete().eq("id", deleteTarget.id);
       if (err) throw err;
-      setRows((prev) => prev.filter((x) => x.id !== r.id));
+      setRows((prev) => prev.filter((x) => x.id !== deleteTarget.id));
       toast.success("Matière supprimée");
+      setDeleteTarget(null);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
       if (msg.includes("foreign key") || msg.includes("violates")) {
@@ -290,6 +304,8 @@ export default function ModulesPage() {
       } else {
         toast.error("Erreur de suppression", { description: msg });
       }
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -463,7 +479,7 @@ export default function ModulesPage() {
                           </DropdownMenuItem>
                           <DropdownMenuItem
                             className="rounded-xl text-xs font-semibold text-rose-600 focus:bg-rose-50"
-                            onClick={() => handleDelete(r)}
+                            onClick={() => setDeleteTarget(r)}
                           >
                             <Trash2 className="mr-2 h-4 w-4" />
                             Supprimer
@@ -624,6 +640,30 @@ export default function ModulesPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Confirmation Suppression Matière AlertDialog */}
+      <AlertDialog open={!!deleteTarget} onOpenChange={(o) => !o && setDeleteTarget(null)}>
+        <AlertDialogContent size="sm">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Supprimer cette matière ?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Êtes-vous sûr de vouloir supprimer définitivement la matière <strong className="text-[#1a1a2e] font-semibold">{deleteTarget?.name}</strong> ?
+              Cette action est irréversible et supprimera les associations de cours rattachées.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Annuler</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDelete}
+              disabled={deleting}
+              className="bg-rose-600 hover:bg-rose-700 text-white font-bold"
+            >
+              {deleting ? <Loader2 className="h-4 w-4 animate-spin mr-1.5" /> : null}
+              Supprimer la matière
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

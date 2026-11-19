@@ -24,6 +24,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import {
@@ -61,6 +71,8 @@ export function AdminsManagement({ initialAdmins }: { initialAdmins: AdminUser[]
   const [search, setSearch] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<AdminUser | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<AdminUser | null>(null);
+  const [deleting, setDeleting] = useState(false);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({
     email: "",
@@ -162,15 +174,21 @@ export function AdminsManagement({ initialAdmins }: { initialAdmins: AdminUser[]
     setSaving(false);
   };
 
-  const handleDelete = async (a: AdminUser) => {
-    if (!confirm(`Supprimer l'administrateur "${a.fullName}" ?`)) return;
-    const { error } = await supabase.rpc("admin_delete_user", { p_uid: a.id });
-    if (error) {
-      toast.error("Erreur", { description: error.message });
-      return;
+  const confirmDelete = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    try {
+      const { error } = await supabase.rpc("admin_delete_user", { p_uid: deleteTarget.id });
+      if (error) {
+        toast.error("Erreur", { description: error.message });
+        return;
+      }
+      setAdmins((prev) => prev.filter((x) => x.id !== deleteTarget.id));
+      toast.success("Administrateur supprimé");
+      setDeleteTarget(null);
+    } finally {
+      setDeleting(false);
     }
-    setAdmins((prev) => prev.filter((x) => x.id !== a.id));
-    toast.success("Administrateur supprimé");
   };
 
   const filtered = admins.filter(
@@ -299,7 +317,7 @@ export function AdminsManagement({ initialAdmins }: { initialAdmins: AdminUser[]
                           </DropdownMenuItem>
                           <DropdownMenuItem
                             className="rounded-xl text-xs font-semibold text-rose-600 focus:bg-rose-50"
-                            onClick={() => handleDelete(a)}
+                            onClick={() => setDeleteTarget(a)}
                           >
                             <Trash2 className="mr-2 h-4 w-4" />
                             Supprimer
@@ -425,6 +443,31 @@ export function AdminsManagement({ initialAdmins }: { initialAdmins: AdminUser[]
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Confirmation Suppression AlertDialog */}
+      <AlertDialog open={!!deleteTarget} onOpenChange={(o) => !o && setDeleteTarget(null)}>
+        <AlertDialogContent size="sm">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Supprimer cet administrateur ?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Êtes-vous sûr de vouloir supprimer définitivement le compte administrateur de{" "}
+              <strong className="text-[#1a1a2e] font-semibold">{deleteTarget?.fullName}</strong> ({deleteTarget?.email}) ?
+              Cette action est irréversible.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Annuler</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDelete}
+              disabled={deleting}
+              className="bg-rose-600 hover:bg-rose-700 text-white font-bold"
+            >
+              {deleting ? <Loader2 className="h-4 w-4 animate-spin mr-1.5" /> : null}
+              Supprimer
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

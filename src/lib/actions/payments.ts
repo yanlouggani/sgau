@@ -1,6 +1,8 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { requireRole } from "@/lib/auth-helpers";
+import { todayLocal } from "@/lib/dates";
 import { revalidatePath } from "next/cache";
 import type {
   StudentPayment,
@@ -9,6 +11,7 @@ import type {
   PaymentMethod,
   PaymentType,
   ProfessorPaymentBreakdown,
+  StudentFinancialFile,
 } from "@/types/database";
 
 /* ------------------------------------------------------------------
@@ -27,7 +30,7 @@ function computeStatus(
     return "paid";
   }
 
-  const today = new Date().toISOString().split("T")[0];
+  const today = todayLocal();
   const isOverdue = dueDate ? today > dueDate : false;
 
   if (paid > 0 && paid < due) {
@@ -187,12 +190,7 @@ export async function recordStudentPaymentAction(payload: {
   try {
     const supabase = await createClient();
 
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error('Non authentifié');
-    const { data: profile } = await supabase.from('users').select('role').eq('id', user.id).single();
-    if (!profile || !['admin', 'secretary'].includes(profile.role)) {
-      throw new Error('Accès non autorisé');
-    }
+    await requireRole("admin", "secretary");
 
     const status = computeStatus(
       payload.amount_due,
@@ -263,6 +261,224 @@ export async function recordStudentPaymentAction(payload: {
 
     revalidatePath("/payments");
     return { ok: true, data: result.data as StudentPayment };
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : "Erreur inattendue";
+    return { ok: false, error: message };
+  }
+}
+
+/**
+ * Récupère le dossier financier complet et le suivi de séances d'un élève :
+ * Coordonnées parents, classes inscrites, présences / bloc de 4 séances, bilan dû/payé, historique.
+ */
+export async function getStudentFinancialFileAction(studentId: string): Promise<{
+  ok: boolean;
+  data?: StudentFinancialFile;
+  error?: string;
+}> {
+  try {
+    const supabase = await createClient();
+
+    // 1. Informations de l'élève
+    const { data: user, error: userErr } = await supabase
+      .from("users")
+      .select("id, firstname, lastname, email, parent_name, parent_phone, billing_notes, isactive")
+      .eq("id", studentId)
+      .maybeSingle();
+
+    if (userErr || !user) {
+      return { ok: false, error: "Élève introuvable." };
+    }
+
+    // 2. Inscriptions actives
+    const { data: enrollmentsData } = await supabase
+      .from("enrollments")
+      .select(`
+        id,
+        status,
+        groupid,
+        groups (
+          id,
+          name,
+          moduleid,
+          modules (id, name, monthly_price, price_per_session)
+        )
+      `)
+      .eq("studentid", studentId);
+
+    const groupIds = (enrollmentsData || [])
+      .map((e: { groupid: string }) => e.groupid)
+      .filter(Boolean);
+
+    const profMap: Record<string, string> = {};
+    if (groupIds.length > 0) {
+      const { data: masters } = await supabase
+        .from("session_masters")
+        .select("groupid, professorid, users:professorid (firstname, lastname)")
+        .in("groupid", groupIds);
+
+      for (const m of (masters || []) as any[]) {
+        const prof = extractUser(m.users);
+        if (prof) {
+          profMap[m.groupid] = `${prof.firstname || ""} ${prof.lastname || ""}`.trim();
+        }
+      }
+    }
+
+    const enrollments = (enrollmentsData || []).map((e: any) => {
+      const g = e.groups;
+      const m = g?.modules;
+      return {
+        id: e.id,
+        status: e.status,
+        groupid: e.groupid,
+        groupName: g?.name || "Classe",
+        moduleName: m?.name || "Matière",
+        monthlyPrice: Number(m?.monthly_price) || 3000,
+        sessionPrice: Number(m?.price_per_session) || 800,
+        professorName: profMap[e.groupid] || "Non assigné",
+      };
+    });
+
+    // 3. Suivi des présences & séances
+    const { data: attendancesData } = await supabase
+      .from("attendance")
+      .select(`
+        id,
+        status,
+        marked_at,
+        sessions (
+          id,
+          sessiondate,
+          starttime,
+          endtime,
+          groupid,
+          groups (
+            name,
+            modules (name)
+          )
+        )
+      `)
+      .eq("studentid", studentId)
+      .order("marked_at", { ascending: false })
+      .limit(60);
+
+    let presentCount = 0;
+    let absentCount = 0;
+    let lateCount = 0;
+    let justifiedCount = 0;
+    const recentSessions: any[] = [];
+
+    for (const att of (attendancesData || []) as any[]) {
+      const st = att.status;
+      if (st === "present") presentCount++;
+      else if (st === "absent") absentCount++;
+      else if (st === "late") lateCount++;
+      else if (st === "justified") justifiedCount++;
+
+      const sess = att.sessions;
+      const grp = sess?.groups;
+      if (sess && recentSessions.length < 10) {
+        recentSessions.push({
+          id: sess.id,
+          sessiondate: sess.sessiondate,
+          starttime: sess.starttime,
+          groupName: grp?.name || "",
+          moduleName: grp?.modules?.name || "",
+          status: st,
+        });
+      }
+    }
+
+    const totalSessions = presentCount + absentCount + lateCount + justifiedCount;
+    // Cycle de 4 séances (standard soutien scolaire ITRI)
+    const rawCycleMod = totalSessions % 4;
+    const sessionsInCurrentCycle = totalSessions === 0 ? 0 : rawCycleMod === 0 ? 4 : rawCycleMod;
+    const cycleCompleted = totalSessions > 0 && rawCycleMod === 0;
+
+    // 4. Historique des versements
+    const { data: paymentsData } = await supabase
+      .from("student_payments")
+      .select("*")
+      .eq("student_id", studentId)
+      .order("created_at", { ascending: false });
+
+    let totalBilled = 0;
+    let totalPaid = 0;
+    const paymentsList: StudentPayment[] = (paymentsData || []).map((p: any) => {
+      const due = Number(p.amount_due) || 0;
+      const paid = Number(p.amount_paid) || 0;
+      totalBilled += due;
+      totalPaid += paid;
+      return {
+        id: p.id,
+        student_id: p.student_id,
+        studentName: `${user.firstname || ""} ${user.lastname || ""}`.trim(),
+        studentEmail: user.email || "",
+        parentName: user.parent_name || "",
+        parentPhone: user.parent_phone || "",
+        billing_period: p.billing_period,
+        amount_due: due,
+        amount_paid: paid,
+        due_date: p.due_date,
+        paid_at: p.paid_at,
+        payment_method: p.payment_method,
+        status: p.status,
+        notes: p.notes,
+        created_at: p.created_at,
+        updated_at: p.updated_at,
+      };
+    });
+
+    const remainingBalance = Math.max(0, totalBilled - totalPaid);
+    const overallStatus: PaymentStatus =
+      totalPaid >= totalBilled && totalBilled > 0
+        ? "paid"
+        : totalPaid > 0
+        ? "partial"
+        : totalBilled > 0
+        ? "unpaid"
+        : "paid";
+
+    return {
+      ok: true,
+      data: {
+        student: {
+          id: user.id,
+          firstname: user.firstname || "",
+          lastname: user.lastname || "",
+          email: user.email || "",
+          fullName: `${user.firstname || ""} ${user.lastname || ""}`.trim(),
+          initials: `${(user.firstname?.[0] || "").toUpperCase()}${(user.lastname?.[0] || "").toUpperCase()}`,
+          parent_name: user.parent_name,
+          parent_phone: user.parent_phone,
+          billing_notes: user.billing_notes,
+          isactive: user.isactive ?? true,
+        },
+        enrollments,
+        attendanceStats: {
+          totalSessions,
+          presentCount,
+          absentCount,
+          lateCount,
+          justifiedCount,
+          recentSessions,
+        },
+        cycleTracking: {
+          sessionsInCurrentCycle,
+          currentCycleTotal: 4,
+          cycleCompleted,
+          needsRenewal: cycleCompleted || remainingBalance > 0,
+        },
+        billingSummary: {
+          totalBilled,
+          totalPaid,
+          remainingBalance,
+          overallStatus,
+        },
+        paymentsHistory: paymentsList,
+      },
+    };
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "Erreur inattendue";
     return { ok: false, error: message };
@@ -359,12 +575,7 @@ export async function generateMonthlyProfessorPaymentsAction(
   try {
     const supabase = await createClient();
 
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error('Non authentifié');
-    const { data: profile } = await supabase.from('users').select('role').eq('id', user.id).single();
-    if (!profile || !['admin', 'secretary'].includes(profile.role)) {
-      throw new Error('Accès non autorisé');
-    }
+    await requireRole("admin", "secretary");
 
     const billingPeriod = typeof options === "string" ? options : options.billingPeriod;
     const startDate = typeof options === "object" ? options.startDate : undefined;
@@ -606,12 +817,7 @@ export async function updateProfessorPaymentStatusAction(
   try {
     const supabase = await createClient();
 
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error('Non authentifié');
-    const { data: profile } = await supabase.from('users').select('role').eq('id', user.id).single();
-    if (!profile || !['admin', 'secretary'].includes(profile.role)) {
-      throw new Error('Accès non autorisé');
-    }
+    await requireRole("admin", "secretary");
 
     const updatePayload: Record<string, unknown> = {
       status,

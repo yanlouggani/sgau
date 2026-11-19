@@ -43,6 +43,8 @@ import {
 import { toast } from "sonner";
 import { getWeekStart, projectWeek } from "@/lib/session-masters";
 import { uuid } from "@/lib/uuid";
+import { todayLocal } from "@/lib/dates";
+import { verifyQRToken, isQRTokenFormat } from "@/lib/qr-token";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
 import Link from "next/link";
@@ -71,9 +73,7 @@ export default function SecretaryDashboardPage() {
   const router = useRouter();
   const supabase = createClient();
 
-  const [selectedDate, setSelectedDate] = useState<string>(() => {
-    return new Date().toISOString().slice(0, 10);
-  });
+  const [selectedDate, setSelectedDate] = useState<string>(() => todayLocal());
   const [sessions, setSessions] = useState<CombinedSession[]>([]);
   const [loading, setLoading] = useState(true);
   const [actingId, setActingId] = useState<string | null>(null);
@@ -86,6 +86,16 @@ export default function SecretaryDashboardPage() {
   const [scannerOpen, setScannerOpen] = useState(false);
   const [scanQuery, setScanQuery] = useState("");
   const [checkingIn, setCheckingIn] = useState(false);
+  const [candidateStudents, setCandidateStudents] = useState<
+    Array<{
+      id: string;
+      firstname?: string | null;
+      lastname?: string | null;
+      email?: string | null;
+      parent_name?: string | null;
+      parent_phone?: string | null;
+    }>
+  >([]);
   const [lastScanResult, setLastScanResult] = useState<{
     success: boolean;
     studentName: string;
@@ -312,51 +322,18 @@ export default function SecretaryDashboardPage() {
     }
   };
 
-  // Traitement du bip / scan badge rapide (1-A)
-  const handleQuickCheckIn = async (rawQuery: string) => {
-    const q = rawQuery.trim();
-    if (!q) return;
-
+  // Exécution du pointage pour un élève identifié
+  const processStudentCheckIn = async (student: {
+    id: string;
+    firstname?: string | null;
+    lastname?: string | null;
+    email?: string | null;
+    parent_name?: string | null;
+    parent_phone?: string | null;
+  }) => {
     setCheckingIn(true);
+    setCandidateStudents([]);
     try {
-      let student: {
-        id: string;
-        firstname?: string | null;
-        lastname?: string | null;
-        email?: string | null;
-        parent_name?: string | null;
-        parent_phone?: string | null;
-      } | null = null;
-
-      const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(q);
-      if (isUUID) {
-        const { data: st } = await supabase
-          .from("users")
-          .select("id, firstname, lastname, email, parent_name, parent_phone")
-          .eq("id", q)
-          .maybeSingle();
-        student = st;
-      } else {
-        const { data: stList } = await supabase
-          .from("users")
-          .select("id, firstname, lastname, email, parent_name, parent_phone")
-          .eq("role", "student")
-          .or(`email.ilike.%${q}%,firstname.ilike.%${q}%,lastname.ilike.%${q}%`)
-          .limit(1);
-        if (stList && stList.length > 0) student = stList[0];
-      }
-
-      if (!student) {
-        setLastScanResult({
-          success: false,
-          studentName: q,
-          sessionTitle: "",
-          hasLatePayment: false,
-          message: "Aucun élève trouvé avec ce badge ou identifiant.",
-        });
-        return;
-      }
-
       const studentName = `${student.firstname || ""} ${student.lastname || ""}`.trim() || student.email || "Élève";
 
       // Vérifier les inscriptions de l'élève
@@ -459,6 +436,98 @@ export default function SecretaryDashboardPage() {
     }
   };
 
+  // Traitement du bip / scan badge rapide sécurisé
+  const handleQuickCheckIn = async (rawQuery: string) => {
+    const q = rawQuery.trim();
+    if (!q) return;
+
+    setCheckingIn(true);
+    setCandidateStudents([]);
+    try {
+      // 1. Détection jeton QR signé sécurisé (validité 24h)
+      if (isQRTokenFormat(q)) {
+        const tokenRes = verifyQRToken(q);
+        if (!tokenRes.valid || !tokenRes.studentId) {
+          setLastScanResult({
+            success: false,
+            studentName: "Badge QR sécurisé",
+            sessionTitle: "",
+            hasLatePayment: false,
+            message: tokenRes.error || "Jeton de badge invalide ou expiré.",
+          });
+          return;
+        }
+
+        const { data: st } = await supabase
+          .from("users")
+          .select("id, firstname, lastname, email, parent_name, parent_phone")
+          .eq("id", tokenRes.studentId)
+          .maybeSingle();
+
+        if (!st) {
+          setLastScanResult({
+            success: false,
+            studentName: "Élève introuvable",
+            sessionTitle: "",
+            hasLatePayment: false,
+            message: "L'identifiant contenu dans le QR code ne correspond à aucun élève.",
+          });
+          return;
+        }
+
+        await processStudentCheckIn(st);
+        return;
+      }
+
+      // 2. Détection d'un UUID brut (support douchette et anciens badges)
+      const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(q);
+      if (isUUID) {
+        const { data: st } = await supabase
+          .from("users")
+          .select("id, firstname, lastname, email, parent_name, parent_phone")
+          .eq("id", q)
+          .maybeSingle();
+
+        if (st) {
+          await processStudentCheckIn(st);
+          return;
+        }
+      }
+
+      // 3. Recherche textuelle (Nom, Prénom, Email) avec échappement de sécurité
+      const safeQ = q.replace(/[,()]/g, " ").trim();
+      const { data: stList } = await supabase
+        .from("users")
+        .select("id, firstname, lastname, email, parent_name, parent_phone")
+        .eq("role", "student")
+        .or(`email.ilike.%${safeQ}%,firstname.ilike.%${safeQ}%,lastname.ilike.%${safeQ}%`)
+        .limit(5);
+
+      if (!stList || stList.length === 0) {
+        setLastScanResult({
+          success: false,
+          studentName: q,
+          sessionTitle: "",
+          hasLatePayment: false,
+          message: "Aucun élève trouvé avec ce nom, email ou badge.",
+        });
+        return;
+      }
+
+      if (stList.length === 1) {
+        await processStudentCheckIn(stList[0]);
+      } else {
+        // Plusieurs correspondances : afficher la liste de choix pour confirmation
+        setCandidateStudents(stList);
+        setLastScanResult(null);
+      }
+    } catch (err) {
+      toast.error("Erreur lors du check-in", { description: String(err) });
+    } finally {
+      setCheckingIn(false);
+    }
+  };
+
   const sendWhatsAppReminderFromScan = (res: {
     studentName: string;
     parentPhone?: string;
@@ -484,7 +553,7 @@ export default function SecretaryDashboardPage() {
     }
   }, [selectedDate]);
 
-  const isToday = selectedDate === new Date().toISOString().slice(0, 10);
+  const isToday = selectedDate === todayLocal();
 
   const changeDate = (days: number) => {
     const d = new Date(selectedDate + "T00:00:00");
@@ -574,7 +643,7 @@ export default function SecretaryDashboardPage() {
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => setSelectedDate(new Date().toISOString().slice(0, 10))}
+              onClick={() => setSelectedDate(todayLocal())}
               className="rounded-xl h-9 text-xs font-bold text-[#6d28d9]"
             >
               Revenir à aujourd&apos;hui
@@ -606,16 +675,16 @@ export default function SecretaryDashboardPage() {
           </CardContent>
         </Card>
 
-        <Card className="rounded-3xl border border-blue-500/20 shadow-xs bg-gradient-to-br from-white to-blue-500/5">
+        <Card className="rounded-3xl border border-[#6d28d9]/25 shadow-xs bg-gradient-to-br from-white to-[#6d28d9]/5">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-semibold text-muted-foreground">
               Séances en cours
             </CardTitle>
-            <PlayCircle className="h-4 w-4 text-blue-600" />
+            <PlayCircle className="h-4 w-4 text-[#6d28d9]" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-black text-blue-700">{metrics.active}</div>
-            <p className="text-xs text-blue-600 font-medium mt-1">Appel en cours</p>
+            <div className="text-2xl font-black text-[#6d28d9]">{metrics.active}</div>
+            <p className="text-xs text-[#6d28d9] font-medium mt-1">Appel en cours</p>
           </CardContent>
         </Card>
 
@@ -691,7 +760,7 @@ export default function SecretaryDashboardPage() {
                   key={sess.id}
                   className={`rounded-3xl border transition-all shadow-xs overflow-hidden ${
                     isOngoing
-                      ? "border-blue-500/40 bg-gradient-to-br from-blue-50/50 to-white ring-2 ring-blue-500/20"
+                      ? "border-[#6d28d9]/40 bg-gradient-to-br from-purple-50/40 to-white ring-2 ring-[#6d28d9]/20"
                       : isDone
                       ? "border-emerald-500/30 bg-white"
                       : "border-[#6d28d9]/10 bg-white hover:border-[#6d28d9]/30"
@@ -716,7 +785,7 @@ export default function SecretaryDashboardPage() {
                       </div>
 
                       {isOngoing ? (
-                        <Badge className="bg-blue-500/15 text-blue-700 border-blue-500/30 animate-pulse text-[10px]">
+                        <Badge className="bg-[#6d28d9]/15 text-[#6d28d9] border-[#6d28d9]/30 animate-pulse text-[10px]">
                           En cours
                         </Badge>
                       ) : isDone ? (
@@ -724,7 +793,7 @@ export default function SecretaryDashboardPage() {
                           Terminée
                         </Badge>
                       ) : (
-                        <Badge className="bg-slate-500/15 text-slate-700 border-slate-500/30 text-[10px]">
+                        <Badge className="bg-[#6d28d9]/10 text-[#6d28d9] border-[#6d28d9]/20 text-[10px]">
                           Prévue
                         </Badge>
                       )}
@@ -757,9 +826,9 @@ export default function SecretaryDashboardPage() {
                         disabled={actingId === sess.id}
                         className={`w-full rounded-2xl font-bold text-xs gap-2 ${
                           isOngoing
-                            ? "bg-blue-600 hover:bg-blue-700 text-white"
+                            ? "bg-[#6d28d9] hover:bg-[#5b21b6] text-white"
                             : isDone
-                            ? "bg-slate-100 hover:bg-slate-200 text-[#1e1b4b]"
+                            ? "bg-[#6d28d9]/10 hover:bg-[#6d28d9]/15 text-[#1e1b4b]"
                             : "bg-[#6d28d9] hover:bg-[#5b21b6] text-white"
                         }`}
                       >
@@ -828,6 +897,40 @@ export default function SecretaryDashboardPage() {
                 {checkingIn ? <Loader2 className="h-4 w-4 animate-spin" /> : "Pointer"}
               </Button>
             </form>
+
+            {/* Liste de choix si recherche textuelle multiple */}
+            {candidateStudents.length > 0 && (
+              <div className="space-y-2 pt-2 animate-in fade-in duration-200">
+                <p className="text-xs font-bold text-slate-700">
+                  {candidateStudents.length} élèves trouvés. Sélectionnez le bon élève :
+                </p>
+                <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+                  {candidateStudents.map((cs) => (
+                    <div
+                      key={cs.id}
+                      className="flex items-center justify-between p-2.5 rounded-xl border border-[#6d28d9]/15 bg-white hover:bg-[#6d28d9]/5 transition-all text-xs"
+                    >
+                      <div className="min-w-0 pr-2">
+                        <span className="font-bold text-[#1a1a2e] block truncate">
+                          {cs.firstname} {cs.lastname}
+                        </span>
+                        <span className="text-[10px] text-muted-foreground block font-mono truncate">
+                          {cs.email}
+                        </span>
+                      </div>
+                      <Button
+                        size="sm"
+                        onClick={() => processStudentCheckIn(cs)}
+                        disabled={checkingIn}
+                        className="h-8 rounded-lg bg-[#6d28d9] hover:bg-[#5b21b6] text-white text-[11px] font-bold px-3 shrink-0"
+                      >
+                        {checkingIn ? <Loader2 className="h-3 w-3 animate-spin" /> : "Pointer"}
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* Résultat visuel instantané du scan */}
             {lastScanResult && (

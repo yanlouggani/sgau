@@ -2,26 +2,37 @@
 
 import { useEffect, useRef } from "react";
 import QRCode from "qrcode";
+import { ShieldCheck } from "lucide-react";
 
-export function StudentQRCode({ studentId }: { studentId: string }) {
+export function StudentQRCode({
+  studentId,
+  token,
+}: {
+  studentId: string;
+  token?: string;
+}) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const qrValue = token || studentId;
 
   useEffect(() => {
     if (canvasRef.current) {
-      QRCode.toCanvas(canvasRef.current, studentId, {
+      QRCode.toCanvas(canvasRef.current, qrValue, {
         width: 256,
         margin: 2,
-        color: { dark: "#000000", light: "#ffffff" },
+        color: { dark: "#1e1b4b", light: "#ffffff" },
       });
     }
-  }, [studentId]);
+  }, [qrValue]);
 
   return (
-    <div className="flex flex-col items-center gap-4">
-      <div className="h-64 w-64 rounded-2xl border-4 border-primary/20 bg-white p-4 shadow-lg">
+    <div className="flex flex-col items-center gap-3">
+      <div className="h-64 w-64 rounded-3xl border-2 border-[#6d28d9]/20 bg-white p-4 shadow-xl shadow-[#6d28d9]/5">
         <canvas ref={canvasRef} className="h-full w-full" />
       </div>
-      <p className="text-xs font-mono text-muted-foreground">{studentId.slice(0, 8)}...</p>
+      <div className="flex items-center gap-1.5 text-xs text-[#64748b]">
+        <ShieldCheck className="h-4 w-4 text-emerald-600" />
+        <span className="font-medium">Badge sécurisé (rotation automatique)</span>
+      </div>
     </div>
   );
 }

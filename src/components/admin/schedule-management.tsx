@@ -33,7 +33,7 @@ import {
   type SessionErrorCode,
   type SessionResult,
 } from "@/lib/session-masters";
-import { validateSessionAssignmentAction } from "@/lib/actions/schedule-actions";
+import { validateSessionAssignmentAction, checkScheduleConflictAction } from "@/lib/actions/schedule-actions";
 import type { TimeSlot } from "@/types/database";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -1074,6 +1074,23 @@ export function ScheduleManagement({
       const val = await validateSessionAssignmentAction(selectedGroup.moduleid, effectiveProfId);
       if (!val.valid) {
         toast.error("Affectation refusée", { description: val.error });
+        return;
+      }
+    }
+
+    // Vérification des conflits d'emploi du temps côté serveur
+    if (selectedGroup) {
+      const conflict = await checkScheduleConflictAction({
+        weekday: form.day,
+        startTime: slot.starttime,
+        endTime: slot.endtime,
+        professorId: effectiveProfId || undefined,
+        roomId: form.roomid,
+        groupId: selectedGroupId,
+        excludeMasterId: mode === "edit" && target?.masterId ? target.masterId : undefined,
+      });
+      if (conflict.hasConflict) {
+        toast.error("Conflit de planning", { description: conflict.reason });
         return;
       }
     }

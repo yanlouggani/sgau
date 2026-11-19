@@ -14,6 +14,16 @@ import {
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -54,6 +64,8 @@ export function UsersManagement({
   const [search, setSearch] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<AppUser | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<AppUser | null>(null);
+  const [deleting, setDeleting] = useState(false);
   const [form, setForm] = useState<FormData>(emptyForm);
   const [saving, setSaving] = useState(false);
   const supabase = createClient();
@@ -154,15 +166,23 @@ export function UsersManagement({
     setSaving(false);
   };
 
-  const handleDelete = async (user: AppUser) => {
-    if (!confirm(`Supprimer ${user.fullName} ?`)) return;
-    const { data, error } = await supabase.rpc("admin_delete_user", { p_uid: user.id });
-    if (error) {
-      toast.error("Erreur", { description: error.message });
-      return;
+  const confirmDelete = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    try {
+      const { error } = await supabase.rpc("admin_delete_user", { p_uid: deleteTarget.id });
+      if (error) {
+        toast.error("Erreur", { description: error.message });
+        return;
+      }
+      setUsers((prev) => prev.filter((u) => u.id !== deleteTarget.id));
+      toast.success("Utilisateur supprimé");
+      setDeleteTarget(null);
+    } catch (err: unknown) {
+      toast.error("Erreur", { description: String(err) });
+    } finally {
+      setDeleting(false);
     }
-    setUsers((prev) => prev.filter((u) => u.id !== user.id));
-    toast.success("Utilisateur supprimé");
   };
 
   const roleBadge = (role: string) => {
@@ -282,7 +302,7 @@ export function UsersManagement({
                         </DropdownMenuItem>
                         <DropdownMenuItem
                           className="rounded-xl text-xs font-semibold text-rose-600 focus:bg-rose-50"
-                          onClick={() => handleDelete(user)}
+                          onClick={() => setDeleteTarget(user)}
                         >
                           <Trash2 className="mr-2 h-4 w-4" />
                           Supprimer
@@ -391,6 +411,31 @@ export function UsersManagement({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Confirmation Suppression Utilisateur AlertDialog */}
+      <AlertDialog open={!!deleteTarget} onOpenChange={(o) => !o && setDeleteTarget(null)}>
+        <AlertDialogContent size="sm">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Supprimer cet utilisateur ?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Êtes-vous sûr de vouloir supprimer définitivement le compte de{" "}
+              <strong className="text-[#1a1a2e] font-semibold">{deleteTarget?.fullName}</strong> ({deleteTarget?.email}) ?
+              Cette action est irréversible.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Annuler</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDelete}
+              disabled={deleting}
+              className="bg-rose-600 hover:bg-rose-700 text-white font-bold"
+            >
+              {deleting ? <Loader2 className="h-4 w-4 animate-spin mr-1.5" /> : null}
+              Supprimer l&apos;utilisateur
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

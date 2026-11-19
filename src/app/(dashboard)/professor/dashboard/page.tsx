@@ -318,14 +318,14 @@ export default function ProfessorDashboardPage() {
       {availableSlots.length > 0 && (
         <section>
           <div className="flex items-center gap-2 mb-4">
-            <span className="h-2.5 w-2.5 rounded-full bg-blue-500" />
+            <span className="h-2.5 w-2.5 rounded-full bg-[#6d28d9]" />
             <h2 className="text-lg font-semibold text-[#1a1a2e]">À démarrer</h2>
-            <Badge variant="secondary" className="text-[10px] font-mono bg-blue-500/10 text-blue-600 border-none">{availableSlots.length}</Badge>
+            <Badge variant="secondary" className="text-[10px] font-mono bg-[#6d28d9]/10 text-[#6d28d9] border-none">{availableSlots.length}</Badge>
           </div>
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
             {availableSlots.map((slot) => (
-              <Card key={slot.id} className="border-blue-200/50 border-dashed overflow-hidden bg-white">
-                <div className="h-0.5 bg-gradient-to-r from-blue-300 to-blue-400" />
+              <Card key={slot.id} className="border-[#6d28d9]/25 border-dashed overflow-hidden bg-white">
+                <div className="h-0.5 bg-gradient-to-r from-[#6d28d9]/40 to-[#6d28d9]" />
                 <CardContent className="p-4 space-y-3">
                   <div className="flex items-center gap-2">
                     <GraduationCap className="h-4 w-4 text-[#6d28d9]" />

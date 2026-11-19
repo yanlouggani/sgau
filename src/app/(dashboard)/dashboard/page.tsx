@@ -245,17 +245,17 @@ export default async function AdminDashboardPage() {
           </Card>
 
           {/* Masse Salariale Enseignants */}
-          <Card className="rounded-3xl border border-blue-500/20 bg-gradient-to-br from-white to-blue-50/50 shadow-xs">
+          <Card className="rounded-3xl border border-[#f97316]/20 bg-gradient-to-br from-white to-[#f97316]/5 shadow-xs">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
                 Masse Salariale Enseignants
               </CardTitle>
-              <div className="h-8 w-8 rounded-xl bg-blue-100 flex items-center justify-center">
-                <ArrowUpRight className="h-4 w-4 text-blue-700" />
+              <div className="h-8 w-8 rounded-xl bg-[#f97316]/10 flex items-center justify-center">
+                <ArrowUpRight className="h-4 w-4 text-[#f97316]" />
               </div>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-black text-blue-700">
+              <div className="text-2xl font-black text-[#f97316]">
                 {stats.totalPayroll.toLocaleString("fr-FR")} DA
               </div>
               <p className="text-xs text-muted-foreground mt-1">

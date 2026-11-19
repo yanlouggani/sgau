@@ -49,6 +49,9 @@ export default async function StudentsPage() {
     isactive: u.isactive as boolean,
     fullName: `${u.firstname as string} ${u.lastname as string}`,
     initials: `${((u.firstname as string)?.[0] ?? "").toUpperCase()}${((u.lastname as string)?.[0] ?? "").toUpperCase()}`,
+    parent_name: (u.parent_name as string) ?? null,
+    parent_phone: (u.parent_phone as string) ?? null,
+    billing_notes: (u.billing_notes as string) ?? null,
     enrollments: enrollmentMap[u.id as string] ?? [],
   }));
 

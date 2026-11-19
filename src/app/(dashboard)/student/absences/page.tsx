@@ -59,7 +59,7 @@ export default function StudentAbsencesPage() {
     switch (status) {
       case "absent": return <Badge className="bg-red-500/10 text-red-600 border-red-200 text-xs">Absent</Badge>;
       case "late": return <Badge className="bg-amber-500/10 text-amber-600 border-amber-200 text-xs">En retard</Badge>;
-      case "justified": return <Badge className="bg-blue-500/10 text-blue-600 border-blue-200 text-xs">Justifié</Badge>;
+      case "justified": return <Badge className="bg-[#6d28d9]/10 text-[#6d28d9] border-[#6d28d9]/25 text-xs">Justifié</Badge>;
       default: return <Badge variant="outline" className="text-xs text-muted-foreground">{status}</Badge>;
     }
   };
@@ -95,10 +95,10 @@ export default function StudentAbsencesPage() {
         <Card className="border-border/50">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">Justifiés</CardTitle>
-            <AlertTriangle className="h-4 w-4 text-blue-500" />
+            <AlertTriangle className="h-4 w-4 text-[#6d28d9]" />
           </CardHeader>
           <CardContent>
-            <p className="text-3xl font-bold text-blue-600">{totalJustified}</p>
+            <p className="text-3xl font-bold text-[#6d28d9]">{totalJustified}</p>
           </CardContent>
         </Card>
       </div>

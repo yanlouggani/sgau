@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/browser";
 import { MascotHeader } from "@/components/mascot/MascotHeader";
 import { EmptyState } from "@/components/mascot/EmptyState";
@@ -73,6 +74,8 @@ import {
   updateProfessorPaymentStatusAction,
 } from "@/lib/actions/payments";
 import { calculateStudentBilling, getLocalModulePricing } from "@/lib/pricing";
+import { StudentFinancialSheet } from "@/components/admin/payments/student-financial-sheet";
+import { todayLocal } from "@/lib/dates";
 import {
   type CashExpense,
   EXPENSE_CATEGORIES,
@@ -88,7 +91,8 @@ import type {
   AppUser,
 } from "@/types/database";
 
-export default function PaymentsPage() {
+function PaymentsPageContent() {
+  const searchParams = useSearchParams();
   const [activeTab, setActiveTab] = useState<"students" | "professors" | "cash_register">("students");
 
   // Période courante par défaut (format AAAA-MM)
@@ -107,6 +111,30 @@ export default function PaymentsPage() {
   const [studentSearch, setStudentSearch] = useState<string>("");
   const [loadingStudents, setLoadingStudents] = useState<boolean>(true);
 
+  // Fiche financière & suivi élève détaillé
+  const [selectedStudentForFile, setSelectedStudentForFile] = useState<string | null>(null);
+  const [studentSheetOpen, setStudentSheetOpen] = useState<boolean>(false);
+
+  // Détection du paramètre URL studentId (ex: redirection depuis la liste des élèves)
+  useEffect(() => {
+    const sid = searchParams.get("studentId");
+    if (sid) {
+      setSelectedStudentForFile(sid);
+      setStudentSheetOpen(true);
+    }
+  }, [searchParams]);
+
+  // Recherche dynamique d'élèves pour l'autocomplétion
+  const matchingStudents = useMemo(() => {
+    if (!studentSearch.trim()) return [];
+    const q = studentSearch.toLowerCase().trim();
+    return studentsList.filter(
+      (s) =>
+        s.fullName.toLowerCase().includes(q) ||
+        s.email.toLowerCase().includes(q)
+    );
+  }, [studentSearch, studentsList]);
+
   // Dialog d'enregistrement paiement élève
   const [studentDialogOpen, setStudentDialogOpen] = useState<boolean>(false);
   const [editingStudentPayment, setEditingStudentPayment] = useState<StudentPayment | null>(null);
@@ -123,7 +151,7 @@ export default function PaymentsPage() {
     billing_period: currentMonthPeriod,
     amount_due: 3000,
     amount_paid: 0,
-    due_date: new Date().toISOString().split("T")[0],
+    due_date: todayLocal(),
     payment_method: "cash",
     notes: "",
   });
@@ -380,7 +408,7 @@ export default function PaymentsPage() {
   }, [professorPayments]);
 
   // Date du jour pour la caisse
-  const todayStr = useMemo(() => new Date().toISOString().split("T")[0], []);
+  const todayStr = useMemo(() => todayLocal(), []);
 
   // Total encaissé en espèces aujourd'hui (date de paiement ou création = today)
   const todayCashReceipts = useMemo(() => {
@@ -720,6 +748,38 @@ export default function PaymentsPage() {
                   onChange={(e) => setStudentSearch(e.target.value)}
                   className="pl-9 rounded-xl h-10 border-[#6d28d9]/15"
                 />
+                {studentSearch.trim().length > 1 && matchingStudents.length > 0 && (
+                  <div className="absolute top-full left-0 right-0 mt-1.5 z-40 bg-white rounded-2xl border border-[#6d28d9]/20 shadow-2xl overflow-hidden max-h-60 overflow-y-auto">
+                    <div className="px-3 py-1.5 bg-[#f8f9fc] border-b border-[#6d28d9]/10 text-[10px] font-bold text-[#64748b] uppercase tracking-wider">
+                      Élèves correspondants ({matchingStudents.length})
+                    </div>
+                    {matchingStudents.slice(0, 6).map((s) => (
+                      <button
+                        key={s.id}
+                        type="button"
+                        onClick={() => {
+                          setSelectedStudentForFile(s.id);
+                          setStudentSheetOpen(true);
+                          setStudentSearch("");
+                        }}
+                        className="w-full px-3 py-2 text-left text-xs flex items-center justify-between hover:bg-[#6d28d9]/10 transition-colors border-b border-[#6d28d9]/5 last:border-none"
+                      >
+                        <div className="flex items-center gap-2">
+                          <div className="h-7 w-7 rounded-full bg-[#6d28d9]/10 text-[#6d28d9] flex items-center justify-center font-bold text-[10px]">
+                            {s.initials}
+                          </div>
+                          <div>
+                            <div className="font-bold text-[#1e1b4b]">{s.fullName}</div>
+                            <div className="text-[10px] text-muted-foreground">{s.email}</div>
+                          </div>
+                        </div>
+                        <span className="text-[10px] text-[#6d28d9] font-bold flex items-center gap-1">
+                          Voir fiche →
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
               <Select
                 value={studentStatusFilter}
@@ -746,7 +806,7 @@ export default function PaymentsPage() {
                   billing_period: selectedPeriod === "all" ? currentMonthPeriod : selectedPeriod,
                   amount_due: 3000,
                   amount_paid: 0,
-                  due_date: new Date().toISOString().split("T")[0],
+                  due_date: todayLocal(),
                   payment_method: "cash",
                   notes: "",
                 });
@@ -776,117 +836,255 @@ export default function PaymentsPage() {
                 />
               </div>
             ) : (
-              <Table>
-                <TableHeader className="bg-[#f8f9fc]">
-                  <TableRow>
-                    <TableHead className="font-bold">Élève</TableHead>
-                    <TableHead className="font-bold">Période</TableHead>
-                    <TableHead className="font-bold">Montant Dû</TableHead>
-                    <TableHead className="font-bold">Montant Versé</TableHead>
-                    <TableHead className="font-bold">Reste</TableHead>
-                    <TableHead className="font-bold">Échéance</TableHead>
-                    <TableHead className="font-bold">Mode</TableHead>
-                    <TableHead className="font-bold">Statut</TableHead>
-                    <TableHead className="text-right font-bold">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
+              <>
+                {/* Vue Table pour écrans larges (Tablette & Desktop) */}
+                <div className="hidden md:block">
+                  <Table>
+                    <TableHeader className="bg-[#f8f9fc]">
+                      <TableRow>
+                        <TableHead className="font-bold">Élève</TableHead>
+                        <TableHead className="font-bold">Période</TableHead>
+                        <TableHead className="font-bold">Montant Dû</TableHead>
+                        <TableHead className="font-bold">Montant Versé</TableHead>
+                        <TableHead className="font-bold">Reste</TableHead>
+                        <TableHead className="font-bold">Échéance</TableHead>
+                        <TableHead className="font-bold">Mode</TableHead>
+                        <TableHead className="font-bold">Statut</TableHead>
+                        <TableHead className="text-right font-bold">Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {studentPayments.map((p) => {
+                        const remaining = Math.max(0, p.amount_due - p.amount_paid);
+                        return (
+                          <TableRow key={p.id} className="hover:bg-[#6d28d9]/5 transition-colors">
+                            <TableCell className="font-semibold text-[#1e1b4b]">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setSelectedStudentForFile(p.student_id);
+                                  setStudentSheetOpen(true);
+                                }}
+                                className="text-left font-bold text-[#1e1b4b] hover:text-[#6d28d9] transition-colors flex items-center gap-1.5 group cursor-pointer"
+                                title="Ouvrir la fiche financière & le suivi de séances"
+                              >
+                                <span>{p.studentName}</span>
+                                <Eye className="h-3 w-3 text-[#6d28d9]/50 group-hover:text-[#6d28d9] transition-colors" />
+                              </button>
+                              <div className="text-xs font-normal text-muted-foreground">
+                                {p.studentEmail}
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <Badge variant="outline" className="rounded-lg text-xs font-mono">
+                                {p.billing_period}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="font-bold">
+                              {p.amount_due.toLocaleString("fr-FR")} DA
+                            </TableCell>
+                            <TableCell className="font-bold text-emerald-700">
+                              {p.amount_paid.toLocaleString("fr-FR")} DA
+                            </TableCell>
+                            <TableCell className="font-semibold text-amber-700">
+                              {remaining.toLocaleString("fr-FR")} DA
+                            </TableCell>
+                            <TableCell className="text-xs text-muted-foreground">
+                              {p.due_date}
+                            </TableCell>
+                            <TableCell>
+                              <span className="text-xs font-medium capitalize">
+                                {p.payment_method === "cash"
+                                  ? "Espèces"
+                                  : p.payment_method === "baridimob"
+                                  ? "BaridiMob"
+                                  : p.payment_method === "ccp"
+                                  ? "CCP"
+                                  : p.payment_method === "bank_transfer"
+                                  ? "Virement"
+                                  : "Chèque"}
+                              </span>
+                            </TableCell>
+                            <TableCell>{getStatusBadge(p.status)}</TableCell>
+                            <TableCell className="text-right">
+                              <div className="flex items-center justify-end gap-1.5">
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => {
+                                    setSelectedStudentForFile(p.student_id);
+                                    setStudentSheetOpen(true);
+                                  }}
+                                  className="rounded-xl h-8 px-2 text-xs text-[#6d28d9] hover:bg-[#6d28d9]/10 font-bold border-[#6d28d9]/25"
+                                  title="Consulter le dossier financier complet et le suivi de séances"
+                                >
+                                  <Eye className="h-3.5 w-3.5 mr-1" />
+                                  Fiche
+                                </Button>
+
+                                {p.amount_paid > 0 && (
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => setViewingStudentReceipt(p)}
+                                    className="rounded-xl h-8 px-2 text-xs text-[#1e1b4b] hover:bg-[#6d28d9]/10 font-bold border-[#6d28d9]/20"
+                                    title="Imprimer le reçu de paiement"
+                                  >
+                                    <Receipt className="h-3.5 w-3.5 mr-1 text-[#6d28d9]" />
+                                    Reçu
+                                  </Button>
+                                )}
+
+                                {p.status !== "paid" && (
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => openWhatsAppReminder(p)}
+                                    className="rounded-xl h-8 px-2 text-xs text-emerald-700 hover:bg-emerald-50 font-bold border-emerald-500/30"
+                                    title="Envoyer une relance WhatsApp aux parents"
+                                  >
+                                    <MessageCircle className="h-3.5 w-3.5 mr-1 text-emerald-600" />
+                                    WhatsApp
+                                  </Button>
+                                )}
+
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => {
+                                    setEditingStudentPayment(p);
+                                    setStudentForm({
+                                      student_id: p.student_id,
+                                      billing_period: p.billing_period,
+                                      amount_due: p.amount_due,
+                                      amount_paid: p.amount_paid,
+                                      due_date: p.due_date,
+                                      payment_method: p.payment_method,
+                                      notes: p.notes || "",
+                                    });
+                                    setStudentDialogOpen(true);
+                                  }}
+                                  className="rounded-xl h-8 px-2.5 text-xs text-[#6d28d9] hover:bg-[#6d28d9]/10 font-bold"
+                                >
+                                  Modifier
+                                </Button>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </div>
+
+                {/* Vue Cartes empilées pour Mobiles (< 768px) */}
+                <div className="md:hidden divide-y divide-[#6d28d9]/10">
                   {studentPayments.map((p) => {
                     const remaining = Math.max(0, p.amount_due - p.amount_paid);
                     return (
-                      <TableRow key={p.id} className="hover:bg-[#6d28d9]/5 transition-colors">
-                        <TableCell className="font-semibold text-[#1e1b4b]">
-                          {p.studentName}
-                          <div className="text-xs font-normal text-muted-foreground">
-                            {p.studentEmail}
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant="outline" className="rounded-lg text-xs font-mono">
-                            {p.billing_period}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="font-bold">
-                          {p.amount_due.toLocaleString("fr-FR")} DA
-                        </TableCell>
-                        <TableCell className="font-bold text-emerald-700">
-                          {p.amount_paid.toLocaleString("fr-FR")} DA
-                        </TableCell>
-                        <TableCell className="font-semibold text-amber-700">
-                          {remaining.toLocaleString("fr-FR")} DA
-                        </TableCell>
-                        <TableCell className="text-xs text-muted-foreground">
-                          {p.due_date}
-                        </TableCell>
-                        <TableCell>
-                          <span className="text-xs font-medium capitalize">
-                            {p.payment_method === "cash"
-                              ? "Espèces"
-                              : p.payment_method === "baridimob"
-                              ? "BaridiMob"
-                              : p.payment_method === "ccp"
-                              ? "CCP"
-                              : p.payment_method === "bank_transfer"
-                              ? "Virement"
-                              : "Chèque"}
-                          </span>
-                        </TableCell>
-                        <TableCell>{getStatusBadge(p.status)}</TableCell>
-                        <TableCell className="text-right">
-                          <div className="flex items-center justify-end gap-1.5">
-                            {p.amount_paid > 0 && (
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => setViewingStudentReceipt(p)}
-                                className="rounded-xl h-8 px-2 text-xs text-[#1e1b4b] hover:bg-[#6d28d9]/10 font-bold border-[#6d28d9]/20"
-                                title="Imprimer le reçu de paiement"
-                              >
-                                <Receipt className="h-3.5 w-3.5 mr-1 text-[#6d28d9]" />
-                                Reçu
-                              </Button>
-                            )}
-
-                            {p.status !== "paid" && (
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => openWhatsAppReminder(p)}
-                                className="rounded-xl h-8 px-2 text-xs text-emerald-700 hover:bg-emerald-50 font-bold border-emerald-500/30"
-                                title="Envoyer une relance WhatsApp aux parents"
-                              >
-                                <MessageCircle className="h-3.5 w-3.5 mr-1 text-emerald-600" />
-                                WhatsApp
-                              </Button>
-                            )}
-
-                            <Button
-                              variant="ghost"
-                              size="sm"
+                      <div key={p.id} className="p-4 space-y-3">
+                        <div className="flex items-start justify-between gap-2">
+                          <div>
+                            <button
+                              type="button"
                               onClick={() => {
-                                setEditingStudentPayment(p);
-                                setStudentForm({
-                                  student_id: p.student_id,
-                                  billing_period: p.billing_period,
-                                  amount_due: p.amount_due,
-                                  amount_paid: p.amount_paid,
-                                  due_date: p.due_date,
-                                  payment_method: p.payment_method,
-                                  notes: p.notes || "",
-                                });
-                                setStudentDialogOpen(true);
+                                setSelectedStudentForFile(p.student_id);
+                                setStudentSheetOpen(true);
                               }}
-                              className="rounded-xl h-8 px-2.5 text-xs text-[#6d28d9] hover:bg-[#6d28d9]/10 font-bold"
+                              className="text-left font-black text-sm text-[#1e1b4b] hover:text-[#6d28d9] flex items-center gap-1.5"
                             >
-                              Modifier
-                            </Button>
+                              {p.studentName}
+                              <Eye className="h-3 w-3 text-[#6d28d9]" />
+                            </button>
+                            <div className="text-xs text-muted-foreground">{p.studentEmail}</div>
                           </div>
-                        </TableCell>
-                      </TableRow>
+                          <div className="flex flex-col items-end gap-1">
+                            {getStatusBadge(p.status)}
+                            <Badge variant="outline" className="text-[10px] font-mono">
+                              {p.billing_period}
+                            </Badge>
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-3 gap-2 p-2.5 rounded-2xl bg-[#f8f9fc] text-xs">
+                          <div>
+                            <span className="text-[10px] text-muted-foreground block">Dû</span>
+                            <span className="font-bold text-[#1e1b4b]">{p.amount_due} DA</span>
+                          </div>
+                          <div>
+                            <span className="text-[10px] text-emerald-700 block">Versé</span>
+                            <span className="font-black text-emerald-700">{p.amount_paid} DA</span>
+                          </div>
+                          <div>
+                            <span className="text-[10px] text-amber-700 block">Reste</span>
+                            <span className="font-black text-amber-700">{remaining} DA</span>
+                          </div>
+                        </div>
+
+                        <div className="flex flex-wrap items-center justify-end gap-1.5 pt-1">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              setSelectedStudentForFile(p.student_id);
+                              setStudentSheetOpen(true);
+                            }}
+                            className="rounded-xl h-8 px-2 text-xs text-[#6d28d9] border-[#6d28d9]/25 font-bold"
+                          >
+                            <Eye className="h-3.5 w-3.5 mr-1" />
+                            Fiche
+                          </Button>
+
+                          {p.amount_paid > 0 && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setViewingStudentReceipt(p)}
+                              className="rounded-xl h-8 px-2 text-xs border-[#6d28d9]/20 font-bold"
+                            >
+                              <Receipt className="h-3.5 w-3.5 mr-1 text-[#6d28d9]" />
+                              Reçu
+                            </Button>
+                          )}
+
+                          {p.status !== "paid" && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => openWhatsAppReminder(p)}
+                              className="rounded-xl h-8 px-2 text-xs text-emerald-700 border-emerald-500/30 font-bold"
+                            >
+                              <MessageCircle className="h-3.5 w-3.5 mr-1 text-emerald-600" />
+                              WhatsApp
+                            </Button>
+                          )}
+
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              setEditingStudentPayment(p);
+                              setStudentForm({
+                                student_id: p.student_id,
+                                billing_period: p.billing_period,
+                                amount_due: p.amount_due,
+                                amount_paid: p.amount_paid,
+                                due_date: p.due_date,
+                                payment_method: p.payment_method,
+                                notes: p.notes || "",
+                              });
+                              setStudentDialogOpen(true);
+                            }}
+                            className="rounded-xl h-8 px-2.5 text-xs text-[#6d28d9] font-bold"
+                          >
+                            Modifier
+                          </Button>
+                        </div>
+                      </div>
                     );
                   })}
-                </TableBody>
-              </Table>
+                </div>
+              </>
             )}
           </div>
         </div>
@@ -1114,7 +1312,7 @@ export default function PaymentsPage() {
                         </TableCell>
                         <TableCell>
                           {isHourly ? (
-                            <Badge className="bg-blue-500/15 text-blue-700 border-blue-500/30 gap-1">
+                            <Badge className="bg-[#6d28d9]/10 text-[#6d28d9] border-[#6d28d9]/25 gap-1">
                               <Clock className="h-3 w-3" /> Taux horaire
                             </Badge>
                           ) : (
@@ -1313,7 +1511,7 @@ export default function PaymentsPage() {
                     </TableHeader>
                     <TableBody>
                       {todayCashReceipts.map((rcpt) => (
-                        <TableRow key={rcpt.id} className="hover:bg-slate-50/80">
+                        <TableRow key={rcpt.id} className="hover:bg-[#6d28d9]/5 transition-colors">
                           <TableCell className="font-semibold text-slate-800 text-xs">
                             {rcpt.studentName}
                           </TableCell>
@@ -1375,7 +1573,7 @@ export default function PaymentsPage() {
                     </TableHeader>
                     <TableBody>
                       {todayExpenses.map((exp) => (
-                        <TableRow key={exp.id} className="hover:bg-slate-50/80">
+                        <TableRow key={exp.id} className="hover:bg-[#6d28d9]/5 transition-colors">
                           <TableCell className="font-semibold text-slate-800 text-xs">
                             {exp.description}
                           </TableCell>
@@ -2055,7 +2253,7 @@ export default function PaymentsPage() {
                     REÇU N° {viewingStudentReceipt.id.slice(0, 8).toUpperCase()}
                   </span>
                   <p className="text-[10px] text-slate-500 mt-1">
-                    Date : {viewingStudentReceipt.paid_at || new Date().toISOString().split("T")[0]}
+                    Date : {viewingStudentReceipt.paid_at || todayLocal()}
                   </p>
                 </div>
               </div>
@@ -2276,6 +2474,44 @@ export default function PaymentsPage() {
           }
         }
       `}</style>
+      <StudentFinancialSheet
+        studentId={selectedStudentForFile}
+        open={studentSheetOpen}
+        onOpenChange={setStudentSheetOpen}
+        onQuickPay={(studentId, defaultAmount) => {
+          setEditingStudentPayment(null);
+          setStudentForm({
+            student_id: studentId,
+            billing_period: selectedPeriod === "all" ? currentMonthPeriod : selectedPeriod,
+            amount_due: defaultAmount,
+            amount_paid: 0,
+            due_date: todayLocal(),
+            payment_method: "cash",
+            notes: "",
+          });
+          setStudentDialogOpen(true);
+        }}
+        onReprintReceipt={(payment) => {
+          setViewingStudentReceipt(payment);
+        }}
+      />
     </div>
+  );
+}
+
+export default function PaymentsPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="p-12 flex flex-col items-center justify-center gap-3">
+          <Loader2 className="h-8 w-8 animate-spin text-[#6d28d9]" />
+          <p className="text-sm font-semibold text-[#64748b]">
+            Chargement du module financier...
+          </p>
+        </div>
+      }
+    >
+      <PaymentsPageContent />
+    </Suspense>
   );
 }

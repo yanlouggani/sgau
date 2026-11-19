@@ -5,6 +5,10 @@ import { Badge } from "@/components/ui/badge";
 import { CalendarDays, Clock, MapPin, GraduationCap, AlertTriangle, CheckCircle } from "lucide-react";
 import { Mascot } from "@/components/mascot/Mascot";
 import { EmptyState } from "@/components/mascot/EmptyState";
+import { todayLocal } from "@/lib/dates";
+import { generateQRToken } from "@/lib/qr-token";
+import { StudentQRCode } from "@/components/student/student-qrcode";
+import { QrCode } from "lucide-react";
 
 export default async function StudentDashboardPage() {
   const supabase = await createClient();
@@ -22,7 +26,8 @@ export default async function StudentDashboardPage() {
     redirect(profile.role === "admin" ? "/dashboard" : "/professor/dashboard");
   }
 
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayLocal();
+  const qrToken = generateQRToken(user.id);
 
   const { data: enrollments } = await supabase
     .from("enrollments")
@@ -86,7 +91,7 @@ export default async function StudentDashboardPage() {
       case "present": return <Badge className="bg-emerald-500/10 text-emerald-600 border-none text-xs rounded-full">Présent</Badge>;
       case "absent": return <Badge className="bg-red-500/10 text-red-600 border-none text-xs rounded-full">Absent</Badge>;
       case "late": return <Badge className="bg-amber-500/10 text-amber-600 border-none text-xs rounded-full">En retard</Badge>;
-      case "justified": return <Badge className="bg-blue-500/10 text-blue-600 border-none text-xs rounded-full">Justifié</Badge>;
+      case "justified": return <Badge className="bg-[#6d28d9]/10 text-[#6d28d9] border-none text-xs rounded-full">Justifié</Badge>;
       default: return <Badge variant="outline" className="text-xs text-[#64748b] rounded-full">Non marqué</Badge>;
     }
   };
@@ -170,57 +175,74 @@ export default async function StudentDashboardPage() {
         </Card>
       </div>
 
-      {groupids.length === 0 ? (
-        <EmptyState
-          pose="reflexion"
-          title="Aucun groupe assigné"
-          hint="Contactez votre administration pour être rattaché à un groupe."
-        />
-      ) : formattedSessions.length === 0 ? (
-        <EmptyState
-          pose="bonjour"
-          title="Aucune séance aujourd'hui"
-          hint="Profitez de votre temps libre !"
-        />
-      ) : (
-        <div className="space-y-3">
-          <h2 className="text-lg font-semibold text-[#1a1a2e]">Séances du jour</h2>
-          {formattedSessions.map((session) => (
-            <Card key={session.id} className="border border-[#6d28d9]/[0.06] bg-white overflow-hidden hover:shadow-md hover:shadow-[#6d28d9]/[0.04] transition-all">
-              <div className="h-1 bg-gradient-to-r from-[#f97316] to-[#6d28d9]" />
-              <CardContent className="p-5">
-                <div className="flex items-start justify-between">
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-2">
-                      <GraduationCap className="h-4 w-4 text-[#6d28d9]" />
-                      <h3 className="font-semibold text-[#1a1a2e]">{session.moduleName}</h3>
-                      <Badge variant="outline" className="text-[10px] rounded-full bg-[#6d28d9]/5 border-[#6d28d9]/10 text-[#6d28d9]">{session.sessiontype}</Badge>
+      <div className="grid gap-6 lg:grid-cols-3 items-start">
+        <div className="lg:col-span-2 space-y-4">
+          {groupids.length === 0 ? (
+            <EmptyState
+              pose="reflexion"
+              title="Aucun groupe assigné"
+              hint="Contactez votre administration pour être rattaché à un groupe."
+            />
+          ) : formattedSessions.length === 0 ? (
+            <EmptyState
+              pose="bonjour"
+              title="Aucune séance aujourd'hui"
+              hint="Profitez de votre temps libre !"
+            />
+          ) : (
+            <div className="space-y-3">
+              <h2 className="text-lg font-semibold text-[#1a1a2e]">Séances du jour</h2>
+              {formattedSessions.map((session) => (
+                <Card key={session.id} className="border border-[#6d28d9]/[0.06] bg-white overflow-hidden hover:shadow-md hover:shadow-[#6d28d9]/[0.04] transition-all">
+                  <div className="h-1 bg-gradient-to-r from-[#f97316] to-[#6d28d9]" />
+                  <CardContent className="p-5">
+                    <div className="flex items-start justify-between">
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2">
+                          <GraduationCap className="h-4 w-4 text-[#6d28d9]" />
+                          <h3 className="font-semibold text-[#1a1a2e]">{session.moduleName}</h3>
+                          <Badge variant="outline" className="text-[10px] rounded-full bg-[#6d28d9]/5 border-[#6d28d9]/10 text-[#6d28d9]">{session.sessiontype}</Badge>
+                        </div>
+                        <div className="flex flex-wrap gap-4 text-sm text-[#64748b]">
+                          <span className="flex items-center gap-1.5"><Clock className="h-3.5 w-3.5" />{session.starttime} — {session.endtime}</span>
+                          <span className="flex items-center gap-1.5"><MapPin className="h-3.5 w-3.5" />{session.roomName}</span>
+                        </div>
+                      </div>
+                      <div className="flex flex-col items-end gap-2">
+                        {statusBadge(session.attendance)}
+                      </div>
                     </div>
-                    <div className="flex flex-wrap gap-4 text-sm text-[#64748b]">
-                      <span className="flex items-center gap-1.5"><Clock className="h-3.5 w-3.5" />{session.starttime} — {session.endtime}</span>
-                      <span className="flex items-center gap-1.5"><MapPin className="h-3.5 w-3.5" />{session.roomName}</span>
-                    </div>
-                  </div>
-                  <div className="flex flex-col items-end gap-2">
-                    {statusBadge(session.attendance)}
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      )}
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
 
-      {formattedSessions.length > 0 && (
-        <div className="flex items-center justify-center gap-2 p-4 rounded-2xl bg-white border border-[#6d28d9]/10">
-          <Mascot pose={presentToday === formattedSessions.length ? "celebration" : "bonjour"} size="sm" animate={false} />
-          <span className="text-sm text-[#64748b]">
-            {presentToday === formattedSessions.length && formattedSessions.length > 0
-              ? <span className="font-semibold text-emerald-600">Parfait ! Vous êtes présent(e) à toutes vos séances aujourd&apos;hui.</span>
-              : `Vous êtes présent(e) à ${presentToday} séance(s) aujourd'hui`}
-          </span>
+          {formattedSessions.length > 0 && (
+            <div className="flex items-center justify-center gap-2 p-4 rounded-2xl bg-white border border-[#6d28d9]/10">
+              <Mascot pose={presentToday === formattedSessions.length ? "celebration" : "bonjour"} size="sm" animate={false} />
+              <span className="text-sm text-[#64748b]">
+                {presentToday === formattedSessions.length && formattedSessions.length > 0
+                  ? <span className="font-semibold text-emerald-600">Parfait ! Vous êtes présent(e) à toutes vos séances aujourd&apos;hui.</span>
+                  : `Vous êtes présent(e) à ${presentToday} séance(s) aujourd'hui`}
+              </span>
+            </div>
+          )}
         </div>
-      )}
+
+        <div className="space-y-4">
+          <Card className="border border-[#6d28d9]/10 bg-white rounded-3xl p-6 shadow-md shadow-[#6d28d9]/5 flex flex-col items-center text-center">
+            <div className="flex items-center gap-2 mb-2">
+              <QrCode className="h-5 w-5 text-[#6d28d9]" />
+              <h2 className="font-bold text-[#1a1a2e] text-sm">Mon Badge QR d&apos;Accès</h2>
+            </div>
+            <p className="text-xs text-[#64748b] mb-4">
+              Présentez ce QR Code à l&apos;entrée pour valider votre présence.
+            </p>
+            <StudentQRCode studentId={user.id} token={qrToken} />
+          </Card>
+        </div>
+      </div>
     </div>
   );
 }

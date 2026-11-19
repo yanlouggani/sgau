@@ -18,6 +18,16 @@ import {
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import {
@@ -26,6 +36,7 @@ import {
 import { Search, Plus, MoreHorizontal, Edit, Trash2, Loader2, ClipboardList, AlertTriangle, CreditCard, CheckCircle2, DollarSign } from "lucide-react";
 import { toast } from "sonner";
 import { recordStudentPaymentAction } from "@/lib/actions/payments";
+import { todayLocal, currentMonthLocal } from "@/lib/dates";
 import type { PaymentMethod } from "@/types/database";
 
 const DAYS_FR: Record<number, string> = {
@@ -59,6 +70,10 @@ export function EnrollmentsManagement({ initialEnrollments, students, groups }: 
   const [form, setForm] = useState({ studentid: "", groupid: "", status: "active" as Enrollment["status"] });
   const [conflictWarning, setConflictWarning] = useState<string | null>(null);
   const [checkingConflict, setCheckingConflict] = useState<boolean>(false);
+
+  // État suppression
+  const [deleteTarget, setDeleteTarget] = useState<Enrollment | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   // État du Dialog de Paiement automatique post-inscription
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
@@ -236,13 +251,13 @@ export function EnrollmentsManagement({ initialEnrollments, students, groups }: 
     if (!paymentStudent || !paymentGroup) return;
     setPaymentSaving(true);
     try {
-      const todayPeriod = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, "0")}`;
+      const todayPeriod = currentMonthLocal();
       const res = await recordStudentPaymentAction({
         student_id: paymentStudent.id,
         billing_period: todayPeriod,
         amount_due: calculatedAmountDue,
         amount_paid: paymentAmountPaid,
-        due_date: new Date().toISOString().split("T")[0],
+        due_date: todayLocal(),
         payment_method: paymentMethod,
         notes: `Paiement initial (${paymentProrata}/4 séances) - Groupe ${paymentGroup.name}`,
       });
@@ -257,15 +272,21 @@ export function EnrollmentsManagement({ initialEnrollments, students, groups }: 
     setPaymentSaving(false);
   };
 
-  const handleDelete = async (e: Enrollment) => {
-    if (!confirm(`Supprimer l'inscription de "${e.studentName ?? e.studentid}" dans "${e.groupName ?? e.groupid}" ?`)) return;
+  const confirmDelete = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
     try {
-      const { data, error } = await supabase.from("enrollments").delete().eq("id", e.id).select();
+      const { data, error } = await supabase.from("enrollments").delete().eq("id", deleteTarget.id).select();
       if (error) throw error;
       if (!data || data.length === 0) throw new Error("Aucune ligne supprimée (vérifiez les permissions RLS)");
-      setEnrollments((prev) => prev.filter((x) => x.id !== e.id));
+      setEnrollments((prev) => prev.filter((x) => x.id !== deleteTarget.id));
       toast.success("Inscription supprimée");
-    } catch (err) { toast.error("Erreur", { description: String(err) }); }
+      setDeleteTarget(null);
+    } catch (err) {
+      toast.error("Erreur", { description: String(err) });
+    } finally {
+      setDeleting(false);
+    }
   };
 
   const statusBadge = (status: Enrollment["status"]) => {
@@ -371,7 +392,7 @@ export function EnrollmentsManagement({ initialEnrollments, students, groups }: 
                             <Edit className="mr-2 h-4 w-4 text-[#6d28d9]" />
                             Modifier
                           </DropdownMenuItem>
-                          <DropdownMenuItem className="rounded-xl text-xs font-semibold text-rose-600 focus:bg-rose-50" onClick={() => handleDelete(e)}>
+                          <DropdownMenuItem className="rounded-xl text-xs font-semibold text-rose-600 focus:bg-rose-50" onClick={() => setDeleteTarget(e)}>
                             <Trash2 className="mr-2 h-4 w-4" />
                             Supprimer
                           </DropdownMenuItem>
@@ -581,6 +602,32 @@ export function EnrollmentsManagement({ initialEnrollments, students, groups }: 
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Confirmation Suppression Inscription AlertDialog */}
+      <AlertDialog open={!!deleteTarget} onOpenChange={(o) => !o && setDeleteTarget(null)}>
+        <AlertDialogContent size="sm">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Supprimer cette inscription ?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Êtes-vous sûr de vouloir retirer l&apos;élève{" "}
+              <strong className="text-[#1a1a2e] font-semibold">{deleteTarget?.studentName ?? deleteTarget?.studentid}</strong>{" "}
+              de la classe <strong className="text-[#1a1a2e] font-semibold">{deleteTarget?.groupName ?? deleteTarget?.groupid}</strong> ?
+              Cette action supprimera également les pointages d&apos;assiduité rattachés.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Annuler</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDelete}
+              disabled={deleting}
+              className="bg-rose-600 hover:bg-rose-700 text-white font-bold"
+            >
+              {deleting ? <Loader2 className="h-4 w-4 animate-spin mr-1.5" /> : null}
+              Supprimer l&apos;inscription
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

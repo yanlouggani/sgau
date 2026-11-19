@@ -18,6 +18,16 @@ import {
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import {
@@ -39,6 +49,8 @@ export default function GroupsPage() {
   const [search, setSearch] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<GroupRow | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<GroupRow | null>(null);
+  const [deleting, setDeleting] = useState(false);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({ domainid: "", moduleid: "", name: "", isactive: true });
   type Form = typeof form;
@@ -125,13 +137,19 @@ export default function GroupsPage() {
     setSaving(false);
   };
 
-  const handleDelete = async (r: GroupRow) => {
-    if (!confirm(`Supprimer le groupe "${r.name}" ?`)) return;
-    const { data: del, error: err } = await supabase.from("groups").delete().eq("id", r.id).select();
-    if (err) { toast.error("Erreur", { description: err.message }); return; }
-    if (!del || del.length === 0) { toast.error("Erreur", { description: "Aucune ligne supprimée (vérifiez les permissions RLS)" }); return; }
-    setRows((prev) => prev.filter((x) => x.id !== r.id));
-    toast.success("Groupe supprimé");
+  const confirmDelete = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    try {
+      const { data: del, error: err } = await supabase.from("groups").delete().eq("id", deleteTarget.id).select();
+      if (err) { toast.error("Erreur", { description: err.message }); return; }
+      if (!del || del.length === 0) { toast.error("Erreur", { description: "Aucune ligne supprimée (vérifiez les permissions RLS)" }); return; }
+      setRows((prev) => prev.filter((x) => x.id !== deleteTarget.id));
+      toast.success("Classe supprimée");
+      setDeleteTarget(null);
+    } finally {
+      setDeleting(false);
+    }
   };
 
   const filtered = rows.filter((r) => r.name.toLowerCase().includes(search.toLowerCase()));
@@ -226,7 +244,7 @@ export default function GroupsPage() {
                             <Edit className="mr-2 h-4 w-4 text-[#6d28d9]" />
                             Modifier
                           </DropdownMenuItem>
-                          <DropdownMenuItem className="rounded-xl text-xs font-semibold text-rose-600 focus:bg-rose-50" onClick={() => handleDelete(r)}>
+                          <DropdownMenuItem className="rounded-xl text-xs font-semibold text-rose-600 focus:bg-rose-50" onClick={() => setDeleteTarget(r)}>
                             <Trash2 className="mr-2 h-4 w-4" />
                             Supprimer
                           </DropdownMenuItem>
@@ -295,6 +313,30 @@ export default function GroupsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Confirmation Suppression Classe AlertDialog */}
+      <AlertDialog open={!!deleteTarget} onOpenChange={(o) => !o && setDeleteTarget(null)}>
+        <AlertDialogContent size="sm">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Supprimer cette classe ?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Êtes-vous sûr de vouloir supprimer définitivement la classe <strong className="text-[#1a1a2e] font-semibold">{deleteTarget?.name}</strong> ?
+              Cette action est irréversible.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Annuler</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDelete}
+              disabled={deleting}
+              className="bg-rose-600 hover:bg-rose-700 text-white font-bold"
+            >
+              {deleting ? <Loader2 className="h-4 w-4 animate-spin mr-1.5" /> : null}
+              Supprimer la classe
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

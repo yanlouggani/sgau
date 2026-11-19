@@ -110,6 +110,8 @@ export function StudentsManagement({
   const [wizardOpen, setWizardOpen] = useState(false);
   const [wizardStep, setWizardStep] = useState<1 | 2 | 3>(1);
   const [editing, setEditing] = useState<Student | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<Student | null>(null);
+  const [deleting, setDeleting] = useState(false);
   const [saving, setSaving] = useState(false);
 
   // État Badge Élève & QR Code imprimable
@@ -384,15 +386,19 @@ export function StudentsManagement({
     setSaving(false);
   };
 
-  const handleDelete = async (s: Student) => {
-    if (!confirm(`Supprimer l'élève "${s.fullName}" ?`)) return;
+  const confirmDelete = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
     try {
-      const { error } = await supabase.rpc("admin_delete_user", { p_uid: s.id });
+      const { error } = await supabase.rpc("admin_delete_user", { p_uid: deleteTarget.id });
       if (error) throw error;
-      setStudents((prev) => prev.filter((x) => x.id !== s.id));
+      setStudents((prev) => prev.filter((x) => x.id !== deleteTarget.id));
       toast.success("Élève supprimé");
+      setDeleteTarget(null);
     } catch (err: unknown) {
       toast.error("Erreur", { description: String(err) });
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -540,7 +546,7 @@ export function StudentsManagement({
 
                     <TableCell className="py-4 text-right">
                       <div className="flex items-center justify-end gap-1.5">
-                        <Link href="/payments">
+                        <Link href={`/payments?studentId=${s.id}`}>
                           <Button
                             variant="ghost"
                             size="sm"
@@ -579,7 +585,7 @@ export function StudentsManagement({
                             </DropdownMenuItem>
                             <DropdownMenuItem
                               className="rounded-xl text-xs font-semibold text-rose-600 focus:bg-rose-50"
-                              onClick={() => handleDelete(s)}
+                              onClick={() => setDeleteTarget(s)}
                             >
                               <Trash2 className="mr-2 h-4 w-4" />
                               Supprimer
@@ -1023,6 +1029,31 @@ export function StudentsManagement({
           }
         }
       `}</style>
+
+      {/* Confirmation Suppression Élève AlertDialog */}
+      <AlertDialog open={!!deleteTarget} onOpenChange={(o) => !o && setDeleteTarget(null)}>
+        <AlertDialogContent size="sm">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Supprimer cet élève ?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Êtes-vous sûr de vouloir supprimer définitivement le profil de l&apos;élève{" "}
+              <strong className="text-[#1a1a2e] font-semibold">{deleteTarget?.fullName}</strong> ({deleteTarget?.email}) ?
+              Cette action supprimera également ses inscriptions et ses pointages d&apos;assiduité.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Annuler</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDelete}
+              disabled={deleting}
+              className="bg-rose-600 hover:bg-rose-700 text-white font-bold"
+            >
+              {deleting ? <Loader2 className="h-4 w-4 animate-spin mr-1.5" /> : null}
+              Supprimer l&apos;élève
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

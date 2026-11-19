@@ -283,3 +283,56 @@ export type ProfessorPayment = {
   updated_at: string;
 };
 
+export type StudentFinancialFile = {
+  student: {
+    id: string;
+    firstname: string;
+    lastname: string;
+    email: string;
+    fullName: string;
+    initials: string;
+    parent_name?: string | null;
+    parent_phone?: string | null;
+    billing_notes?: string | null;
+    isactive: boolean;
+  };
+  enrollments: Array<{
+    id: string;
+    status: string;
+    groupid: string;
+    groupName: string;
+    moduleName: string;
+    monthlyPrice: number;
+    sessionPrice: number;
+    professorName: string;
+  }>;
+  attendanceStats: {
+    totalSessions: number;
+    presentCount: number;
+    absentCount: number;
+    lateCount: number;
+    justifiedCount: number;
+    recentSessions: Array<{
+      id: string;
+      sessiondate: string;
+      starttime: string;
+      groupName: string;
+      moduleName: string;
+      status: string;
+    }>;
+  };
+  cycleTracking: {
+    sessionsInCurrentCycle: number;
+    currentCycleTotal: number;
+    cycleCompleted: boolean;
+    needsRenewal: boolean;
+  };
+  billingSummary: {
+    totalBilled: number;
+    totalPaid: number;
+    remainingBalance: number;
+    overallStatus: PaymentStatus;
+  };
+  paymentsHistory: StudentPayment[];
+};
+

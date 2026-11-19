@@ -552,7 +552,7 @@ function StatusPill({ label, title, active, color, onClick }: {
 function StatusDot({ status, className }: { status: string; className?: string }) {
   const k = status?.toLowerCase() ?? "";
   const colors: Record<string, string> = {
-    active: "bg-emerald-500", scheduled: "bg-blue-500",
+    active: "bg-emerald-500", scheduled: "bg-[#6d28d9]",
     completed: "bg-muted-foreground/40", cancelled: "bg-red-500",
   };
   return <span className={cn("rounded-full", colors[k] ?? "bg-muted-foreground/40", k === "active" && "animate-pulse", className)} />;
@@ -562,7 +562,7 @@ function SessionStatusBadge({ status }: { status: string }) {
   const k = status?.toLowerCase() ?? "";
   const styles: Record<string, string> = {
     active: "bg-emerald-500/10 text-emerald-600 border-emerald-200",
-    scheduled: "bg-blue-500/10 text-blue-600 border-blue-200",
+    scheduled: "bg-[#6d28d9]/10 text-[#6d28d9] border-[#6d28d9]/25",
     completed: "bg-muted text-muted-foreground",
     cancelled: "bg-red-500/10 text-red-600 border-red-200",
   };
@@ -577,7 +577,7 @@ function StudentStatusBadge({ status }: { status: string }) {
     present: "bg-emerald-500/10 text-emerald-600 border-emerald-200",
     absent: "bg-red-500/10 text-red-600 border-red-200",
     late: "bg-amber-500/10 text-amber-600 border-amber-200",
-    justified: "bg-blue-500/10 text-blue-600 border-blue-200",
+    justified: "bg-[#6d28d9]/10 text-[#6d28d9] border-[#6d28d9]/25",
     unmarked: "bg-muted text-muted-foreground",
   };
   const labels: Record<string, string> = {

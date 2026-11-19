@@ -16,6 +16,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -68,6 +78,8 @@ export function ProfessorsManagement({
   const [wizardOpen, setWizardOpen] = useState(false);
   const [wizardStep, setWizardStep] = useState<1 | 2 | 3 | 4>(1);
   const [editing, setEditing] = useState<ProfessorWithGroups | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<ProfessorWithGroups | null>(null);
+  const [deleting, setDeleting] = useState(false);
   const [saving, setSaving] = useState(false);
 
   // Formulaire avec mode de rémunération
@@ -314,15 +326,19 @@ export function ProfessorsManagement({
     setSaving(false);
   };
 
-  const handleDelete = async (prof: ProfessorWithGroups) => {
-    if (!confirm(`Supprimer le profil de "${prof.fullName}" ?`)) return;
+  const confirmDelete = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
     try {
-      const { error } = await supabase.rpc("admin_delete_user", { p_uid: prof.id });
+      const { error } = await supabase.rpc("admin_delete_user", { p_uid: deleteTarget.id });
       if (error) throw error;
-      setProfessors((prev) => prev.filter((x) => x.id !== prof.id));
+      setProfessors((prev) => prev.filter((x) => x.id !== deleteTarget.id));
       toast.success("Enseignant supprimé");
+      setDeleteTarget(null);
     } catch (err: unknown) {
       toast.error("Erreur", { description: String(err) });
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -399,7 +415,7 @@ export function ProfessorsManagement({
                     </DropdownMenuItem>
                     <DropdownMenuItem
                       className="rounded-xl text-xs font-semibold text-rose-600 focus:bg-rose-50"
-                      onClick={() => handleDelete(prof)}
+                      onClick={() => setDeleteTarget(prof)}
                     >
                       <Trash2 className="mr-2 h-4 w-4" />
                       Supprimer
@@ -436,7 +452,7 @@ export function ProfessorsManagement({
                     Rémunération :
                   </span>
                   {isHourly ? (
-                    <Badge className="bg-blue-500/15 text-blue-700 border-blue-500/30 gap-1 rounded-lg text-xs">
+                    <Badge className="bg-[#6d28d9]/10 text-[#6d28d9] border-[#6d28d9]/25 gap-1 rounded-lg text-xs">
                       <Clock className="h-3 w-3" />
                       {prof.hourly_rate ? `${prof.hourly_rate.toLocaleString("fr-FR")} DA/h` : "Taux horaire"}
                     </Badge>
@@ -810,6 +826,31 @@ export function ProfessorsManagement({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Confirmation Suppression Enseignant AlertDialog */}
+      <AlertDialog open={!!deleteTarget} onOpenChange={(o) => !o && setDeleteTarget(null)}>
+        <AlertDialogContent size="sm">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Supprimer cet enseignant ?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Êtes-vous sûr de vouloir supprimer définitivement le profil de l&apos;enseignant{" "}
+              <strong className="text-[#1a1a2e] font-semibold">{deleteTarget?.fullName}</strong> ({deleteTarget?.email}) ?
+              Cette action supprimera également ses affectations aux classes.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Annuler</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDelete}
+              disabled={deleting}
+              className="bg-rose-600 hover:bg-rose-700 text-white font-bold"
+            >
+              {deleting ? <Loader2 className="h-4 w-4 animate-spin mr-1.5" /> : null}
+              Supprimer l&apos;enseignant
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

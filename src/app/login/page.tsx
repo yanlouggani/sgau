@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
 import { motion, type Variants } from "framer-motion";
 import { createClient } from "@/lib/supabase/browser";
 import { Button } from "@/components/ui/button";
@@ -21,9 +22,33 @@ export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [resetLoading, setResetLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const router = useRouter();
   const supabase = createClient();
+
+  const handleForgotPassword = async () => {
+    if (!email || !email.includes("@")) {
+      toast.error("Veuillez d'abord renseigner votre adresse email.");
+      return;
+    }
+    setResetLoading(true);
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+        redirectTo: `${window.location.origin}/login`,
+      });
+      if (error) throw error;
+      toast.success("Email envoyé", {
+        description: "Consultez votre boîte mail pour réinitialiser votre mot de passe.",
+      });
+    } catch (err: unknown) {
+      toast.error("Erreur", {
+        description: err instanceof Error ? err.message : String(err),
+      });
+    } finally {
+      setResetLoading(false);
+    }
+  };
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -57,9 +82,11 @@ export default function LoginPage() {
 
     const target = profile?.role === "admin"
       ? "/dashboard"
-      : profile?.role === "professor"
-        ? "/professor/dashboard"
-        : "/student/dashboard";
+      : profile?.role === "secretary"
+        ? "/secretary/dashboard"
+        : profile?.role === "professor"
+          ? "/professor/dashboard"
+          : "/student/dashboard";
     router.push(target);
     router.refresh();
   };
@@ -102,7 +129,7 @@ export default function LoginPage() {
             animate={{ y: [-4, 4, -4] }}
             transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
           >
-            <img src="/logo.png" alt="ITRI Academy" width={64} height={64} className="rounded-xl shadow-lg shadow-[#6d28d9]/10" />
+            <Image src="/logo.png" alt="ITRI Academy" width={64} height={64} className="rounded-xl shadow-lg shadow-[#6d28d9]/10" />
           </motion.div>
           <div>
             <h1 className="text-xl font-bold tracking-tight text-[#1a1a2e]">ITRI Academy</h1>
@@ -146,7 +173,17 @@ export default function LoginPage() {
                   />
                 </motion.div>
                 <motion.div variants={itemVariants} className="space-y-1.5">
-                  <Label htmlFor="password" className="text-xs font-medium text-[#64748b]">Mot de passe</Label>
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="password" className="text-xs font-medium text-[#64748b]">Mot de passe</Label>
+                    <button
+                      type="button"
+                      onClick={handleForgotPassword}
+                      disabled={resetLoading}
+                      className="text-xs font-medium text-[#6d28d9] hover:underline transition-colors disabled:opacity-50"
+                    >
+                      {resetLoading ? "Envoi..." : "Mot de passe oublié ?"}
+                    </button>
+                  </div>
                   <div className="relative">
                     <Input
                       id="password"

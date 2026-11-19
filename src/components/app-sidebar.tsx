@@ -41,6 +41,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Mascot } from "@/components/mascot/Mascot";
 import { cn } from "@/lib/utils";
+import { todayLocal } from "@/lib/dates";
 import type { UserRole } from "@/types/database";
 
 import Image from "next/image";
@@ -59,40 +60,45 @@ type NavSection = {
 
 const adminNav: NavSection[] = [
   {
-    label: "Pilotage",
+    label: "Accueil",
     items: [
-      { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
+      { label: "Aujourd'hui", href: "/dashboard", icon: LayoutDashboard },
     ],
   },
   {
-    label: "Pédagogie & Cours",
+    label: "Élèves",
     items: [
-      { label: "Matières & Tarifs", href: "/modules", icon: BookOpen },
-      { label: "Classes & Groupes", href: "/groups", icon: Group },
+      { label: "Liste des élèves", href: "/students", icon: GraduationCap },
       { label: "Inscriptions", href: "/enrollments", icon: ClipboardList },
-      { label: "Domaines", href: "/domains", icon: BookOpen },
-      { label: "Sections", href: "/sections", icon: BookOpen },
     ],
   },
   {
-    label: "Élèves & Équipe",
-    items: [
-      { label: "Élèves", href: "/students", icon: GraduationCap },
-      { label: "Enseignants", href: "/professors", icon: UserCheck },
-      { label: "Utilisateurs", href: "/admin/users", icon: Shield },
-    ],
-  },
-  {
-    label: "Organisation",
+    label: "Classes & Planning",
     items: [
       { label: "Emploi du temps", href: "/schedule", icon: CalendarDays },
-      { label: "Salles de cours", href: "/rooms", icon: Building2 },
+      { label: "Classes", href: "/groups", icon: Group },
     ],
   },
   {
-    label: "Finances & Suivi",
+    label: "Équipe pédagogique",
     items: [
-      { label: "Paiements & Tarifs", href: "/payments", icon: CreditCard },
+      { label: "Enseignants", href: "/professors", icon: UserCheck },
+    ],
+  },
+  {
+    label: "Finances",
+    items: [
+      { label: "Paiements & Caisse", href: "/payments", icon: CreditCard },
+    ],
+  },
+  {
+    label: "Configuration",
+    items: [
+      { label: "Matières & Tarifs", href: "/modules", icon: BookOpen },
+      { label: "Domaines", href: "/domains", icon: LayoutList },
+      { label: "Sections", href: "/sections", icon: Sparkles },
+      { label: "Salles de cours", href: "/rooms", icon: Building2 },
+      { label: "Comptes utilisateurs", href: "/admin/users", icon: Shield },
     ],
   },
 ];
@@ -106,10 +112,17 @@ const secretaryNav: NavSection[] = [
     ],
   },
   {
-    label: "Élèves & Finances",
+    label: "Élèves & Inscriptions",
     items: [
       { label: "Liste des élèves", href: "/students", icon: GraduationCap },
-      { label: "Paiements & Relances", href: "/payments", icon: CreditCard },
+      { label: "Inscriptions", href: "/enrollments", icon: ClipboardList },
+      { label: "Classes", href: "/groups", icon: Group },
+    ],
+  },
+  {
+    label: "Finances & Caisse",
+    items: [
+      { label: "Paiements & Caisse", href: "/payments", icon: CreditCard },
     ],
   },
 ];
@@ -150,7 +163,7 @@ export function AppSidebar({
   useEffect(() => {
     if (user.role === "admin" || user.role === "secretary") {
       void (async () => {
-        const today = new Date().toISOString().slice(0, 10);
+        const today = todayLocal();
         const { count } = await supabase
           .from("student_payments")
           .select("id", { count: "exact", head: true })

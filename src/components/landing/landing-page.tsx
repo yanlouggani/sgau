@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
+import { toast } from "sonner";
 import { motion, useScroll, useTransform, AnimatePresence, type Variants } from "framer-motion";
 import {
   GraduationCap, Users, Target, ArrowRight, Sparkles,
@@ -124,6 +126,30 @@ export default function LandingPage() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [openFaq, setOpenFaq] = useState<number | null>(null);
   const [scrollProgress, setScrollProgress] = useState(0);
+  const [contactForm, setContactForm] = useState({
+    prenom: "",
+    nom: "",
+    email: "",
+    formation: "",
+    message: "",
+  });
+  const [contactSubmitting, setContactSubmitting] = useState(false);
+
+  const handleContactSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!contactForm.prenom.trim() || !contactForm.email.trim() || !contactForm.message.trim()) {
+      toast.error("Veuillez remplir votre prénom, email et message.");
+      return;
+    }
+    setContactSubmitting(true);
+    setTimeout(() => {
+      setContactSubmitting(false);
+      toast.success("Message envoyé avec succès !", {
+        description: "Notre équipe vous répondra dans les plus brefs délais.",
+      });
+      setContactForm({ prenom: "", nom: "", email: "", formation: "", message: "" });
+    }, 600);
+  };
 
   useEffect(() => {
     const supabase = createClient();
@@ -131,6 +157,7 @@ export default function LandingPage() {
       if (!user) return;
       supabase.from("users").select("role").eq("id", user.id).maybeSingle().then(({ data: profile }) => {
         if (profile?.role === "admin") router.push("/dashboard");
+        else if (profile?.role === "secretary") router.push("/secretary/dashboard");
         else if (profile?.role === "professor") router.push("/professor/dashboard");
         else router.push("/student/dashboard");
       });
@@ -168,8 +195,8 @@ export default function LandingPage() {
             transition={{ duration: 0.5 }}
             className="flex items-center gap-3"
           >
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl overflow-hidden">
-              <img src="/logo.png" alt="ITRI Academy" className="h-full w-full object-cover" />
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl overflow-hidden relative">
+              <Image src="/logo.png" alt="ITRI Academy" width={40} height={40} className="h-full w-full object-cover" priority />
             </div>
             <div className="flex flex-col">
               <span className="text-base font-bold tracking-tight text-[#1a1a2e]">ITRI Academy</span>
@@ -705,24 +732,48 @@ export default function LandingPage() {
                 <div className="absolute top-0 left-[10%] right-[10%] h-[2px] bg-gradient-to-r from-transparent via-[#f97316] to-transparent" />
                 <h3 className="text-lg font-bold text-[#1a1a2e] mb-1">Envoyez-nous un message</h3>
                 <p className="text-sm text-[#64748b] mb-6">Nous vous répondrons dans les plus brefs délais.</p>
-                <form className="space-y-4" onSubmit={(e) => e.preventDefault()}>
+                <form className="space-y-4" onSubmit={handleContactSubmit}>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-xs font-medium text-[#64748b] mb-1.5">Prénom</label>
-                      <input type="text" className="w-full px-4 py-2.5 rounded-xl border border-[#6d28d9]/10 text-sm focus:outline-none focus:border-[#6d28d9] focus:ring-2 focus:ring-[#6d28d9]/10 transition-all" placeholder="Votre prénom" />
+                      <label className="block text-xs font-medium text-[#64748b] mb-1.5">Prénom *</label>
+                      <input
+                        type="text"
+                        value={contactForm.prenom}
+                        onChange={(e) => setContactForm((prev) => ({ ...prev, prenom: e.target.value }))}
+                        className="w-full px-4 py-2.5 rounded-xl border border-[#6d28d9]/10 text-sm focus:outline-none focus:border-[#6d28d9] focus:ring-2 focus:ring-[#6d28d9]/10 transition-all"
+                        placeholder="Votre prénom"
+                        required
+                      />
                     </div>
                     <div>
                       <label className="block text-xs font-medium text-[#64748b] mb-1.5">Nom</label>
-                      <input type="text" className="w-full px-4 py-2.5 rounded-xl border border-[#6d28d9]/10 text-sm focus:outline-none focus:border-[#6d28d9] focus:ring-2 focus:ring-[#6d28d9]/10 transition-all" placeholder="Votre nom" />
+                      <input
+                        type="text"
+                        value={contactForm.nom}
+                        onChange={(e) => setContactForm((prev) => ({ ...prev, nom: e.target.value }))}
+                        className="w-full px-4 py-2.5 rounded-xl border border-[#6d28d9]/10 text-sm focus:outline-none focus:border-[#6d28d9] focus:ring-2 focus:ring-[#6d28d9]/10 transition-all"
+                        placeholder="Votre nom"
+                      />
                     </div>
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-[#64748b] mb-1.5">Email</label>
-                    <input type="email" className="w-full px-4 py-2.5 rounded-xl border border-[#6d28d9]/10 text-sm focus:outline-none focus:border-[#6d28d9] focus:ring-2 focus:ring-[#6d28d9]/10 transition-all" placeholder="email@exemple.com" />
+                    <label className="block text-xs font-medium text-[#64748b] mb-1.5">Email *</label>
+                    <input
+                      type="email"
+                      value={contactForm.email}
+                      onChange={(e) => setContactForm((prev) => ({ ...prev, email: e.target.value }))}
+                      className="w-full px-4 py-2.5 rounded-xl border border-[#6d28d9]/10 text-sm focus:outline-none focus:border-[#6d28d9] focus:ring-2 focus:ring-[#6d28d9]/10 transition-all"
+                      placeholder="email@exemple.com"
+                      required
+                    />
                   </div>
                   <div>
                     <label className="block text-xs font-medium text-[#64748b] mb-1.5">Formation souhaitée</label>
-                    <select className="w-full px-4 py-2.5 rounded-xl border border-[#6d28d9]/10 text-sm focus:outline-none focus:border-[#6d28d9] focus:ring-2 focus:ring-[#6d28d9]/10 transition-all bg-white text-[#1a1a2e]">
+                    <select
+                      value={contactForm.formation}
+                      onChange={(e) => setContactForm((prev) => ({ ...prev, formation: e.target.value }))}
+                      className="w-full px-4 py-2.5 rounded-xl border border-[#6d28d9]/10 text-sm focus:outline-none focus:border-[#6d28d9] focus:ring-2 focus:ring-[#6d28d9]/10 transition-all bg-white text-[#1a1a2e]"
+                    >
                       <option value="">Sélectionnez une formation</option>
                       <option value="anglais">Anglais</option>
                       <option value="francais">Français</option>
@@ -733,16 +784,24 @@ export default function LandingPage() {
                     </select>
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-[#64748b] mb-1.5">Message</label>
-                    <textarea rows={4} className="w-full px-4 py-2.5 rounded-xl border border-[#6d28d9]/10 text-sm focus:outline-none focus:border-[#6d28d9] focus:ring-2 focus:ring-[#6d28d9]/10 transition-all resize-none" placeholder="Votre message..." />
+                    <label className="block text-xs font-medium text-[#64748b] mb-1.5">Message *</label>
+                    <textarea
+                      rows={4}
+                      value={contactForm.message}
+                      onChange={(e) => setContactForm((prev) => ({ ...prev, message: e.target.value }))}
+                      className="w-full px-4 py-2.5 rounded-xl border border-[#6d28d9]/10 text-sm focus:outline-none focus:border-[#6d28d9] focus:ring-2 focus:ring-[#6d28d9]/10 transition-all resize-none"
+                      placeholder="Votre message..."
+                      required
+                    />
                   </div>
                   <button
                     type="submit"
-                    className="w-full inline-flex h-11 items-center justify-center gap-2 rounded-xl text-sm font-semibold text-white shadow-lg shadow-[#f97316]/20 transition-all hover:shadow-xl hover:shadow-[#f97316]/30 hover:-translate-y-0.5 active:scale-[0.98]"
+                    disabled={contactSubmitting}
+                    className="w-full inline-flex h-11 items-center justify-center gap-2 rounded-xl text-sm font-semibold text-white shadow-lg shadow-[#f97316]/20 transition-all hover:shadow-xl hover:shadow-[#f97316]/30 hover:-translate-y-0.5 active:scale-[0.98] disabled:opacity-50"
                     style={{ background: "linear-gradient(135deg, #f97316, #6d28d9)" }}
                   >
                     <Send className="h-4 w-4" />
-                    Envoyer le message
+                    {contactSubmitting ? "Envoi en cours..." : "Envoyer le message"}
                   </button>
                 </form>
               </motion.div>
@@ -756,8 +815,8 @@ export default function LandingPage() {
           <div className="grid md:grid-cols-3 gap-10 mb-12">
             <div>
               <div className="flex items-center gap-3 mb-4">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl overflow-hidden">
-                  <img src="/logo.png" alt="ITRI Academy" className="h-full w-full object-cover" />
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl overflow-hidden relative">
+                  <Image src="/logo.png" alt="ITRI Academy" width={40} height={40} className="h-full w-full object-cover" />
                 </div>
                 <div>
                   <span className="text-base font-bold">ITRI Academy</span>

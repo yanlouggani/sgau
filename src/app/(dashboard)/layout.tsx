@@ -46,10 +46,6 @@ export default async function DashboardLayout({
             <header className="flex h-14 items-center gap-4 border-b border-[#6d28d9]/[0.06] bg-white/80 px-6 backdrop-blur-xl">
               <SidebarTrigger className="-ml-1 size-4 text-[#6d28d9]" />
               <div className="flex-1" />
-              <div className="hidden md:flex items-center gap-2 text-xs font-medium text-[#64748b] bg-[#f8f9fc] rounded-xl px-3 py-1.5 border border-[#6d28d9]/5">
-                <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
-                <span>ITRI Academy · En ligne</span>
-              </div>
             </header>
             <main className="flex-1 overflow-auto p-6 md:p-8">{children}</main>
           </div>
