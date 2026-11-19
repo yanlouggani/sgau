@@ -184,7 +184,7 @@ export async function projectWeek(
 
 type CreateSeriesInput = {
   moduleId: string;
-  professorId: string;
+  professorId?: string | null;
   groupId: string;
   roomId: string;
   weekday: number;
@@ -199,9 +199,10 @@ export async function createSeries(
   supabase: SupabaseClient,
   input: CreateSeriesInput,
 ): Promise<SessionResult<SessionMaster>> {
+  const profId = input.professorId && input.professorId !== "none" ? input.professorId : null;
   const { data, error } = await supabase.rpc("create_series", {
     p_moduleid: input.moduleId,
-    p_professorid: input.professorId,
+    p_professorid: profId,
     p_groupid: input.groupId,
     p_roomid: input.roomId,
     p_weekday: input.weekday,
@@ -211,6 +212,38 @@ export async function createSeries(
     p_effective_end_date: input.effectiveEndDate ?? null,
     p_series_key: input.seriesKey ?? null,
   });
+  if (!error && data) return { ok: true, data: data as SessionMaster };
+
+  // Fallback direct table insert si le RPC n'accepte pas de prof null ou échoue
+  try {
+    const id = crypto.randomUUID();
+    const seriesKey = input.seriesKey ?? `series_${id.slice(0, 8)}`;
+    const { data: inserted, error: insErr } = await supabase
+      .from("session_masters")
+      .insert({
+        id,
+        serieskey: seriesKey,
+        moduleid: input.moduleId,
+        professorid: profId,
+        groupid: input.groupId,
+        roomid: input.roomId,
+        weekday: input.weekday,
+        starttime: input.startTime,
+        endtime: input.endTime,
+        effectivestartdate: input.effectiveStartDate,
+        effectiveenddate: input.effectiveEndDate ?? null,
+        status: "active",
+      })
+      .select()
+      .maybeSingle();
+
+    if (!insErr && inserted) {
+      return { ok: true, data: inserted as SessionMaster };
+    }
+  } catch {
+    // Continuer vers l'erreur standard
+  }
+
   if (error) return mapSessionError(error.message);
   return { ok: true, data: data as SessionMaster };
 }
@@ -232,6 +265,7 @@ export async function editOccurrence(
   supabase: SupabaseClient,
   input: EditOccurrenceInput,
 ): Promise<SessionResult<SessionException>> {
+  const profId = input.professorId === "none" ? null : (input.professorId ?? null);
   const { data, error } = await supabase.rpc("edit_occurrence", {
     p_master_id: input.masterId,
     p_occurrence_date: input.occurrenceDate,
@@ -239,7 +273,7 @@ export async function editOccurrence(
     p_start_time: input.startTime ?? null,
     p_end_time: input.endTime ?? null,
     p_moduleid: input.moduleId ?? null,
-    p_professorid: input.professorId ?? null,
+    p_professorid: profId,
     p_groupid: input.groupId ?? null,
     p_roomid: input.roomId ?? null,
     p_note: input.note ?? null,
@@ -283,11 +317,12 @@ export async function editSeriesFromDate(
   supabase: SupabaseClient,
   input: EditSeriesFromDateInput,
 ): Promise<SessionResult<EditSeriesFromDateResult>> {
+  const profId = input.professorId === "none" ? null : (input.professorId ?? null);
   const { data, error } = await supabase.rpc("edit_series_from_date", {
     p_master_id: input.masterId,
     p_from_date: input.fromDate,
     p_moduleid: input.moduleId ?? null,
-    p_professorid: input.professorId ?? null,
+    p_professorid: profId,
     p_groupid: input.groupId ?? null,
     p_roomid: input.roomId ?? null,
     p_weekday: input.weekday ?? null,
@@ -307,6 +342,68 @@ export async function deleteSeriesFromDate(
   supabase: SupabaseClient,
   input: { masterId: string; fromDate: string },
 ): Promise<SessionResult<DeleteSeriesFromDateResult>> {
+  try {
+    // Calculer la veille de fromDate pour borner la série sans toucher aux séances antérieures
+    const prevDate = new Date(input.fromDate + "T00:00:00");
+    prevDate.setDate(prevDate.getDate() - 1);
+    const prevDateStr = toLocalDateStr(prevDate);
+
+    // Récupérer le master actuel pour vérifier sa date de début
+    const { data: master } = await supabase
+      .from("session_masters")
+      .select("*")
+      .eq("id", input.masterId)
+      .maybeSingle();
+
+    if (master) {
+      const startDate = master.effectivestartdate || master.effective_start_date;
+      if (startDate && input.fromDate <= startDate) {
+        // La suppression commence dès ou avant la date de début de la série -> on archive toute la série
+        await supabase
+          .from("session_masters")
+          .update({
+            status: "archived",
+            archivedat: new Date().toISOString(),
+          })
+          .eq("id", input.masterId);
+
+        await supabase
+          .from("session_exceptions")
+          .delete()
+          .eq("masterid", input.masterId)
+          .gte("occurrencedate", input.fromDate);
+
+        return { ok: true, data: { master: null, archived: true } };
+      } else {
+        // La série a déjà tourné avant fromDate : on met à jour la date de fin à la veille de fromDate !
+        // Ainsi toutes les séances AVANT fromDate restent strictement préservées dans l'historique.
+        const { data: updated, error: updErr } = await supabase
+          .from("session_masters")
+          .update({
+            effectiveenddate: prevDateStr,
+            effective_end_date: prevDateStr,
+          })
+          .eq("id", input.masterId)
+          .select()
+          .maybeSingle();
+
+        // Nettoyer les exceptions sur ou après fromDate
+        await supabase
+          .from("session_exceptions")
+          .delete()
+          .eq("masterid", input.masterId)
+          .gte("occurrencedate", input.fromDate);
+
+        if (!updErr && updated) {
+          return { ok: true, data: { master: updated as SessionMaster, archived: false } };
+        }
+      }
+    }
+  } catch (err) {
+    console.warn("Direct update for deleteSeriesFromDate failed, attempting RPC fallback:", err);
+  }
+
+  // Fallback RPC standard si disponible
   const { data, error } = await supabase.rpc("delete_series_from_date", {
     p_master_id: input.masterId,
     p_from_date: input.fromDate,

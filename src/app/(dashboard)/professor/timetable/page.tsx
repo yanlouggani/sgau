@@ -51,6 +51,8 @@ export default function ProfessorTimetablePage() {
   const [actionTarget, setActionTarget] = useState<DayItem | null>(null);
   const [actionInProgress, setActionInProgress] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [enrolledStudents, setEnrolledStudents] = useState<{ id: string, name: string }[]>([]);
+  const [studentsLoading, setStudentsLoading] = useState(false);
   const supabase = createClient();
   const router = useRouter();
   const mascot = useMascot();
@@ -201,7 +203,32 @@ export default function ProfessorTimetablePage() {
     if (item.type === "schedule") {
       setActionTarget(item);
       setDialogOpen(true);
+      if (!isTimePast(item.sessiondate, item.starttime)) {
+        loadStudents(item.groupid);
+      }
     }
+  };
+
+  const loadStudents = async (groupId: string) => {
+    setStudentsLoading(true);
+    setEnrolledStudents([]);
+    try {
+      const { data } = await supabase
+        .from("enrollments")
+        .select("studentid, users!inner(firstname, lastname)")
+        .eq("groupid", groupId)
+        .eq("status", "active");
+      
+      if (data) {
+        setEnrolledStudents(data.map((d: any) => ({
+          id: d.studentid,
+          name: `${d.users?.firstname ?? ""} ${d.users?.lastname ?? ""}`.trim()
+        })));
+      }
+    } catch (e) {
+      console.error(e);
+    }
+    setStudentsLoading(false);
   };
 
   const handleSaisirPresences = async (item: DayItem) => {
@@ -456,34 +483,62 @@ export default function ProfessorTimetablePage() {
       )}
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="sm:max-w-[440px]">
-          <DialogHeader>
-            <DialogTitle className="text-base font-extrabold text-[#1a1a2e]">
-              {actionTarget && isTimePast(actionTarget.sessiondate, actionTarget.starttime)
-                ? "Saisir les présences"
-                : "Annuler la séance"}
-            </DialogTitle>
-            <DialogDescription className="text-xs font-semibold text-[#64748b]">
-              {actionTarget && (
-                <>
-                  <strong className="text-[#6d28d9]">{actionTarget.moduleName}</strong> — {actionTarget.starttime} à {actionTarget.endtime}
-                  <br />
-                  {new Date(actionTarget.sessiondate + "T00:00:00").toLocaleDateString("fr-FR", {
-                    weekday: "long", day: "numeric", month: "long", year: "numeric",
-                  })}
-                </>
-              )}
-            </DialogDescription>
+        <DialogContent className="sm:max-w-[460px] rounded-3xl p-6 border-[#6d28d9]/15">
+          <DialogHeader className="space-y-2">
+            <div className="flex items-center gap-3">
+              <Mascot pose="eureka" size="sm" />
+              <div>
+                <DialogTitle className="text-lg font-bold text-[#1a1a2e]">
+                  {actionTarget && isTimePast(actionTarget.sessiondate, actionTarget.starttime)
+                    ? "Saisir les présences"
+                    : "Détails du cours"}
+                </DialogTitle>
+                <DialogDescription className="text-xs text-[#64748b]">
+                  {actionTarget && (
+                    <>
+                      <strong className="text-[#6d28d9]">{actionTarget.moduleName}</strong> — {actionTarget.starttime} à {actionTarget.endtime}
+                      <br />
+                      {new Date(actionTarget.sessiondate + "T00:00:00").toLocaleDateString("fr-FR", {
+                        weekday: "long", day: "numeric", month: "long", year: "numeric",
+                      })}
+                    </>
+                  )}
+                </DialogDescription>
+              </div>
+            </div>
           </DialogHeader>
-          <DialogFooter className="gap-2.5 pt-4">
-            <Button variant="outline" onClick={() => { setDialogOpen(false); setActionTarget(null); }}>Retour</Button>
+
+          {actionTarget && !isTimePast(actionTarget.sessiondate, actionTarget.starttime) && (
+            <div className="py-2">
+              <div className="flex gap-4 mb-4 text-sm text-[#64748b]">
+                <div className="flex items-center gap-1.5"><MapPin className="h-4 w-4 text-[#f97316]"/> {actionTarget.roomName}</div>
+                <div className="flex items-center gap-1.5"><Users className="h-4 w-4 text-[#6d28d9]"/> {actionTarget.groupName}</div>
+              </div>
+              
+              <div className="border rounded-xl p-3 bg-muted/20 max-h-[150px] overflow-y-auto">
+                <h4 className="text-xs font-semibold mb-2">Étudiants inscrits ({enrolledStudents.length})</h4>
+                {studentsLoading ? (
+                  <div className="flex justify-center p-4"><Loader2 className="h-5 w-5 animate-spin text-[#6d28d9]"/></div>
+                ) : enrolledStudents.length > 0 ? (
+                  <ul className="text-sm space-y-1">
+                    {enrolledStudents.map(s => <li key={s.id}>• {s.name}</li>)}
+                  </ul>
+                ) : (
+                  <p className="text-xs text-muted-foreground">Aucun étudiant inscrit</p>
+                )}
+              </div>
+            </div>
+          )}
+
+          <DialogFooter className="gap-2 sm:gap-0 pt-4">
+            <Button variant="outline" onClick={() => { setDialogOpen(false); setActionTarget(null); }} className="rounded-xl border-[#6d28d9]/20 font-bold">Retour</Button>
             {actionTarget && isTimePast(actionTarget.sessiondate, actionTarget.starttime) ? (
-              <Button onClick={() => handleSaisirPresences(actionTarget)} disabled={actionInProgress}>
+              <Button onClick={() => handleSaisirPresences(actionTarget)} disabled={actionInProgress} className="rounded-xl bg-[#6d28d9] hover:bg-[#5b21b6] text-white font-bold">
                 {actionInProgress && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 <PenLine className="mr-2 h-4 w-4" />Saisir les présences
               </Button>
             ) : actionTarget ? (
-              <Button variant="destructive" onClick={() => handleAnnuler(actionTarget)} disabled={actionInProgress}>
+              <Button variant="destructive" onClick={() => handleAnnuler(actionTarget)} disabled={actionInProgress} className="rounded-xl font-bold">
                 {actionInProgress && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 <XCircle className="mr-2 h-4 w-4" />Annuler la séance
               </Button>

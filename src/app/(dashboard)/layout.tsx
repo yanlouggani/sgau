@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
 import { MascotProvider } from "@/components/mascot/MascotProvider";
+import type { UserRole } from "@/types/database";
 
 export default async function DashboardLayout({
   children,
@@ -32,7 +33,7 @@ export default async function DashboardLayout({
     id: profile.id,
     fullName: `${profile.firstname} ${profile.lastname}`,
     initials: `${(profile.firstname?.[0] ?? "").toUpperCase()}${(profile.lastname?.[0] ?? "").toUpperCase()}`,
-    role: profile.role as "admin" | "professor" | "student",
+    role: profile.role as UserRole,
     email: profile.email ?? "",
   };
 

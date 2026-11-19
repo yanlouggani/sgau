@@ -8,6 +8,7 @@ import {
   CalendarCheck,
   Activity,
   ArrowUpRight,
+  ArrowDownRight,
   Clock,
   LayoutList,
   Group,
@@ -16,6 +17,12 @@ import {
   FileText,
   ShieldAlert,
   ChevronRight,
+  DollarSign,
+  Wallet,
+  Percent,
+  PiggyBank,
+  CreditCard,
+  AlertTriangle,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { MascotHeader } from "@/components/mascot/MascotHeader";
@@ -42,6 +49,11 @@ async function getDashboardStats() {
     else redirect("/student/dashboard");
   }
 
+  // Use local date format instead of UTC ISO slice
+  const now = new Date();
+  const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+  const currentPeriod = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+
   const [
     { count: totalUsers },
     { count: totalStudents },
@@ -50,7 +62,8 @@ async function getDashboardStats() {
     { count: totalDomains },
     { count: totalGroups },
     { count: totalRooms },
-    { count: pendingJustifications },
+    { data: studentPaymentsRes },
+    { data: profPaymentsRes },
   ] = await Promise.all([
     supabase.from("users").select("*", { count: "exact", head: true }),
     supabase.from("users").select("*", { count: "exact", head: true }).eq("role", "student"),
@@ -59,12 +72,43 @@ async function getDashboardStats() {
     supabase.from("domains").select("*", { count: "exact", head: true }),
     supabase.from("groups").select("*", { count: "exact", head: true }),
     supabase.from("rooms").select("*", { count: "exact", head: true }),
-    supabase.from("justifications").select("*", { count: "exact", head: true }).eq("status", "PENDING"),
+    supabase.from("student_payments").select("amount_due, amount_paid, status, billing_period"),
+    supabase.from("professor_payments").select("total_amount, status, billing_period"),
   ]);
 
-  // Use local date format instead of UTC ISO slice
-  const now = new Date();
-  const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+  // Calculs Financiers de rentabilité de l'école (4-A)
+  let totalRevenueDue = 0;
+  let totalRevenueCollected = 0;
+  let lateStudentsCount = 0;
+  let lateAmountDue = 0;
+
+  (studentPaymentsRes || []).forEach((p: {
+    amount_due: number;
+    amount_paid: number;
+    status: string;
+    billing_period: string;
+  }) => {
+    // Si période courante ou total global
+    totalRevenueDue += p.amount_due || 0;
+    totalRevenueCollected += p.amount_paid || 0;
+    if (p.status === "late" || p.status === "unpaid") {
+      lateStudentsCount++;
+      lateAmountDue += Math.max(0, (p.amount_due || 0) - (p.amount_paid || 0));
+    }
+  });
+
+  let totalPayroll = 0;
+  (profPaymentsRes || []).forEach((p: {
+    total_amount: number;
+    status: string;
+    billing_period: string;
+  }) => {
+    totalPayroll += p.total_amount || 0;
+  });
+
+  const netMargin = totalRevenueCollected - totalPayroll;
+  const recoveryRate = totalRevenueDue > 0 ? Math.round((totalRevenueCollected / totalRevenueDue) * 100) : 0;
+  const marginPercent = totalRevenueCollected > 0 ? Math.round((netMargin / totalRevenueCollected) * 100) : 0;
 
   const { data: todaySessions } = await supabase
     .from("sessions")
@@ -83,9 +127,17 @@ async function getDashboardStats() {
     totalDomains: totalDomains ?? 0,
     totalGroups: totalGroups ?? 0,
     totalRooms: totalRooms ?? 0,
-    pendingJustifications: pendingJustifications ?? 0,
     totalSessionsToday,
     activeSessionsToday: activeSessions,
+    currentPeriod,
+    totalRevenueDue,
+    totalRevenueCollected,
+    totalPayroll,
+    netMargin,
+    recoveryRate,
+    marginPercent,
+    lateStudentsCount,
+    lateAmountDue,
   };
 }
 
@@ -99,25 +151,9 @@ export default async function AdminDashboardPage() {
         title={`Bienvenue, ${stats.adminName} 👋`}
         description="Voici la vue d&apos;ensemble en temps réel de votre établissement ITRI Academy."
         pose={stats.totalSessionsToday > 0 ? "celebration" : "bonjour"}
-        mascotMessage={
-          stats.pendingJustifications > 0
-            ? `${stats.pendingJustifications} justification(s) en attente !`
-            : "Tout est sous contrôle aujourd'hui !"
-        }
+        mascotMessage="Tout est sous contrôle aujourd'hui !"
         badge="Espace Administration"
       >
-        <Link
-          href="/admin/justifications"
-          className="inline-flex items-center gap-2 rounded-2xl bg-[#6d28d9] px-4 py-2.5 text-sm font-semibold text-white shadow-md shadow-[#6d28d9]/20 transition-all hover:bg-[#5b21b6] hover:shadow-lg"
-        >
-          <FileText className="h-4 w-4" />
-          <span>Voir Justifications</span>
-          {stats.pendingJustifications > 0 && (
-            <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-[#f97316] px-1 text-xs font-bold text-white">
-              {stats.pendingJustifications}
-            </span>
-          )}
-        </Link>
       </MascotHeader>
 
       {/* Primary KPI Grid with Mascots */}
@@ -165,6 +201,111 @@ export default async function AdminDashboardPage() {
           </Link>
         }
       />
+
+      {/* ---------------- SECTION PILOTAGE FINANCIER & RENTABILITÉ ÉCOLE (4-A) ---------------- */}
+      <div className="space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <div>
+            <h3 className="text-lg font-black text-[#1e1b4b] flex items-center gap-2">
+              <PiggyBank className="h-5 w-5 text-[#6d28d9]" />
+              Pilotage Financier & Rentabilité de l&apos;Établissement
+            </h3>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Vue synthétique : Cotisations perçues, masse salariale profs et marge nette d&apos;exploitation.
+            </p>
+          </div>
+          <Link href="/payments">
+            <button className="text-xs font-bold text-[#6d28d9] hover:underline flex items-center gap-1">
+              <span>Gestion complète des paiements & Caisse</span>
+              <ChevronRight className="h-4 w-4" />
+            </button>
+          </Link>
+        </div>
+
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {/* CA Encaissé */}
+          <Card className="rounded-3xl border border-emerald-500/20 bg-gradient-to-br from-white to-emerald-50/50 shadow-xs">
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
+                Recettes Cotisations Élèves
+              </CardTitle>
+              <div className="h-8 w-8 rounded-xl bg-emerald-100 flex items-center justify-center">
+                <ArrowDownRight className="h-4 w-4 text-emerald-700" />
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-black text-emerald-700">
+                {stats.totalRevenueCollected.toLocaleString("fr-FR")} DA
+              </div>
+              <p className="text-xs text-muted-foreground mt-1 flex items-center justify-between">
+                <span>Taux de recouvrement :</span>
+                <span className="font-bold text-emerald-700">{stats.recoveryRate}%</span>
+              </p>
+            </CardContent>
+          </Card>
+
+          {/* Masse Salariale Enseignants */}
+          <Card className="rounded-3xl border border-blue-500/20 bg-gradient-to-br from-white to-blue-50/50 shadow-xs">
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
+                Masse Salariale Enseignants
+              </CardTitle>
+              <div className="h-8 w-8 rounded-xl bg-blue-100 flex items-center justify-center">
+                <ArrowUpRight className="h-4 w-4 text-blue-700" />
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-black text-blue-700">
+                {stats.totalPayroll.toLocaleString("fr-FR")} DA
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">
+                Rémunérations calculées aux séances / heures
+              </p>
+            </CardContent>
+          </Card>
+
+          {/* Marge Nette d'Exploitation */}
+          <Card className="rounded-3xl border border-[#6d28d9]/25 bg-gradient-to-br from-white via-purple-50/30 to-[#6d28d9]/10 shadow-xs">
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
+                Marge Nette de l&apos;École
+              </CardTitle>
+              <div className="h-8 w-8 rounded-xl bg-[#6d28d9]/15 flex items-center justify-center">
+                <TrendingUp className="h-4 w-4 text-[#6d28d9]" />
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className={`text-2xl font-black ${stats.netMargin >= 0 ? "text-[#6d28d9]" : "text-rose-600"}`}>
+                {stats.netMargin.toLocaleString("fr-FR")} DA
+              </div>
+              <p className="text-xs text-muted-foreground mt-1 flex items-center justify-between">
+                <span>Marge bénéficiaire :</span>
+                <span className="font-bold text-[#6d28d9]">{stats.marginPercent}%</span>
+              </p>
+            </CardContent>
+          </Card>
+
+          {/* Suivi des Impayés */}
+          <Card className="rounded-3xl border border-rose-500/20 bg-gradient-to-br from-white to-rose-50/50 shadow-xs">
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
+                Impayés & Retards Élèves
+              </CardTitle>
+              <div className="h-8 w-8 rounded-xl bg-rose-100 flex items-center justify-center">
+                <AlertTriangle className="h-4 w-4 text-rose-700" />
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-black text-rose-700">
+                {stats.lateAmountDue.toLocaleString("fr-FR")} DA
+              </div>
+              <p className="text-xs text-rose-600 font-medium mt-1">
+                {stats.lateStudentsCount} élève(s) avec solde débiteur
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
 
       {/* Main Content Grid */}
       <div className="grid gap-6 md:grid-cols-2">

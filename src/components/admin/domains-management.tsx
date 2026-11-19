@@ -12,13 +12,18 @@ import {
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Search, Plus, MoreHorizontal, Edit, Trash2, Loader2, LayoutList } from "lucide-react";
 import { toast } from "sonner";
-import { PageHeader } from "@/components/page-header";
+import { MascotHeader } from "@/components/mascot/MascotHeader";
+import { EmptyState } from "@/components/mascot/EmptyState";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Checkbox } from "@/components/ui/checkbox";
 
 type Domain = { id: string; name: string; isActive: boolean };
 
@@ -27,6 +32,7 @@ export function DomainsManagement({ initialDomains }: { initialDomains: Domain[]
   const [search, setSearch] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<Domain | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState<Domain | null>(null);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({ name: "", isActive: true });
   const supabase = createClient();
@@ -52,18 +58,21 @@ export function DomainsManagement({ initialDomains }: { initialDomains: Domain[]
     setSaving(false);
   };
 
-  const handleDelete = async (d: Domain) => {
-    if (!confirm(`Supprimer le domaine "${d.name}" ?`)) return;
+  const handleDelete = async () => {
+    if (!deleteConfirm) return;
+    const d = deleteConfirm;
     try {
       const { data, error } = await supabase.from("domains").delete().eq("id", d.id).select();
       if (error) throw error;
       if (!data || data.length === 0) throw new Error("Aucune ligne supprimée (vérifiez les permissions RLS)");
       setDomains((prev) => prev.filter((x) => x.id !== d.id));
       toast.success("Domaine supprimé");
+      setDeleteConfirm(null);
     } catch (err) {
       const msg = String(err);
       if (msg.includes("foreign key")) toast.error("Impossible de supprimer ce domaine : il est lié à des formations existantes");
       else toast.error("Erreur", { description: msg });
+      setDeleteConfirm(null);
     }
   };
 
@@ -73,17 +82,16 @@ export function DomainsManagement({ initialDomains }: { initialDomains: Domain[]
 
   return (
     <div className="space-y-8 pb-10">
-      <PageHeader
+      <MascotHeader
         title="Domaines"
-        subtitle={`${domains.length} domaine(s) référencé(s)`}
-        icon={<LayoutList className="h-5 w-5" />}
-        actions={
-          <Button onClick={openAdd} className="h-11 rounded-2xl bg-gradient-to-r from-[#6d28d9] to-[#8b5cf6] px-5 font-bold text-white shadow-md shadow-[#6d28d9]/20 hover:shadow-lg">
-            <Plus className="mr-2 h-4 w-4" />
-            Ajouter
-          </Button>
-        }
-      />
+        description={`${domains.length} domaine(s) référencé(s)`}
+        pose="bonjour"
+      >
+        <Button onClick={openAdd} className="h-11 rounded-2xl bg-gradient-to-r from-[#6d28d9] to-[#8b5cf6] px-5 font-bold text-white shadow-md shadow-[#6d28d9]/20 hover:shadow-lg">
+          <Plus className="mr-2 h-4 w-4" />
+          Ajouter
+        </Button>
+      </MascotHeader>
 
       <Card className="overflow-hidden rounded-3xl border border-[#6d28d9]/10 bg-white shadow-xs">
         <div className="border-b border-[#6d28d9]/5 p-5">
@@ -99,11 +107,11 @@ export function DomainsManagement({ initialDomains }: { initialDomains: Domain[]
         </div>
         <CardContent className="p-0">
           {filtered.length === 0 ? (
-            <div className="flex flex-col items-center justify-center px-6 py-16 text-center">
-              <LayoutList className="mb-3 h-10 w-10 text-[#6d28d9]/40" />
-              <p className="text-sm font-semibold text-[#1a1a2e]">Aucun domaine trouvé</p>
-              <p className="text-sm text-[#64748b]">Essayez d’ajuster vos critères de recherche.</p>
-            </div>
+            <EmptyState
+              pose="reflexion"
+              title="Aucun domaine trouvé"
+              hint="Essayez d'ajuster vos critères de recherche."
+            />
           ) : (
             <Table>
               <TableHeader className="bg-[#f8f9fc]">
@@ -138,7 +146,7 @@ export function DomainsManagement({ initialDomains }: { initialDomains: Domain[]
                             <Edit className="mr-2 h-4 w-4 text-[#6d28d9]" />
                             Modifier
                           </DropdownMenuItem>
-                          <DropdownMenuItem className="rounded-xl text-xs font-semibold text-rose-600 focus:bg-rose-50" onClick={() => handleDelete(d)}>
+                          <DropdownMenuItem className="rounded-xl text-xs font-semibold text-rose-600 focus:bg-rose-50" onClick={() => setDeleteConfirm(d)}>
                             <Trash2 className="mr-2 h-4 w-4" />
                             Supprimer
                           </DropdownMenuItem>
@@ -172,7 +180,7 @@ export function DomainsManagement({ initialDomains }: { initialDomains: Domain[]
               </div>
             </div>
             <div className="flex items-center gap-2 pt-2">
-              <input type="checkbox" id="domain-active" checked={form.isActive} onChange={(e) => setForm({ ...form, isActive: e.target.checked })} className="rounded" />
+              <Checkbox id="domain-active" checked={form.isActive} onCheckedChange={(c) => setForm({ ...form, isActive: c as boolean })} />
               <Label htmlFor="domain-active" className="text-sm font-normal">Domaine actif</Label>
             </div>
           </div>
@@ -185,6 +193,20 @@ export function DomainsManagement({ initialDomains }: { initialDomains: Domain[]
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      <AlertDialog open={!!deleteConfirm} onOpenChange={(o: boolean) => !o && setDeleteConfirm(null)}>
+        <AlertDialogContent className="rounded-3xl">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Supprimer le domaine ?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Êtes-vous sûr de vouloir supprimer "{deleteConfirm?.name}" ? Cette action est irréversible.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="rounded-xl">Annuler</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete} className="rounded-xl bg-rose-600 text-white hover:bg-rose-700">Supprimer</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

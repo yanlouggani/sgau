@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
@@ -20,6 +21,7 @@ import {
   LogOut,
   Sparkles,
   User,
+  CreditCard,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/browser";
 import {
@@ -41,6 +43,8 @@ import { Mascot } from "@/components/mascot/Mascot";
 import { cn } from "@/lib/utils";
 import type { UserRole } from "@/types/database";
 
+import Image from "next/image";
+
 type NavItem = {
   label: string;
   href: string;
@@ -58,24 +62,24 @@ const adminNav: NavSection[] = [
     label: "Pilotage",
     items: [
       { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
-      { label: "Justifications", href: "/admin/justifications", icon: FileText, badge: "Action" },
     ],
   },
   {
-    label: "Communauté",
+    label: "Pédagogie & Cours",
     items: [
-      { label: "Étudiants", href: "/students", icon: GraduationCap },
-      { label: "Professeurs", href: "/professors", icon: UserCheck },
-      { label: "Administrateurs", href: "/admin/users", icon: Shield },
-    ],
-  },
-  {
-    label: "Formations & Offres",
-    items: [
-      { label: "Domaines", href: "/domains", icon: LayoutList },
-      { label: "Modules", href: "/modules", icon: BookOpen },
-      { label: "Groupes", href: "/groups", icon: Group },
+      { label: "Matières & Tarifs", href: "/modules", icon: BookOpen },
+      { label: "Classes & Groupes", href: "/groups", icon: Group },
       { label: "Inscriptions", href: "/enrollments", icon: ClipboardList },
+      { label: "Domaines", href: "/domains", icon: BookOpen },
+      { label: "Sections", href: "/sections", icon: BookOpen },
+    ],
+  },
+  {
+    label: "Élèves & Équipe",
+    items: [
+      { label: "Élèves", href: "/students", icon: GraduationCap },
+      { label: "Enseignants", href: "/professors", icon: UserCheck },
+      { label: "Utilisateurs", href: "/admin/users", icon: Shield },
     ],
   },
   {
@@ -83,6 +87,29 @@ const adminNav: NavSection[] = [
     items: [
       { label: "Emploi du temps", href: "/schedule", icon: CalendarDays },
       { label: "Salles de cours", href: "/rooms", icon: Building2 },
+    ],
+  },
+  {
+    label: "Finances & Suivi",
+    items: [
+      { label: "Paiements & Tarifs", href: "/payments", icon: CreditCard },
+    ],
+  },
+];
+
+const secretaryNav: NavSection[] = [
+  {
+    label: "Secrétariat & Présences",
+    items: [
+      { label: "Séances du jour", href: "/secretary/dashboard", icon: CalendarDays },
+      { label: "Emploi du temps", href: "/schedule", icon: LayoutDashboard },
+    ],
+  },
+  {
+    label: "Élèves & Finances",
+    items: [
+      { label: "Liste des élèves", href: "/students", icon: GraduationCap },
+      { label: "Paiements & Relances", href: "/payments", icon: CreditCard },
     ],
   },
 ];
@@ -118,32 +145,70 @@ export function AppSidebar({
   const router = useRouter();
   const pathname = usePathname();
   const supabase = createClient();
+  const [lateCount, setLateCount] = useState<number>(0);
+
+  useEffect(() => {
+    if (user.role === "admin" || user.role === "secretary") {
+      void (async () => {
+        const today = new Date().toISOString().slice(0, 10);
+        const { count } = await supabase
+          .from("student_payments")
+          .select("id", { count: "exact", head: true })
+          .or(`status.eq.late,and(status.neq.paid,due_date.lt.${today})`);
+        if (count && count > 0) {
+          setLateCount(count);
+        }
+      })();
+    }
+  }, [user.role, supabase]);
 
   const getNav = (): NavSection[] => {
+    let baseNav: NavSection[] = [];
     switch (user.role) {
       case "admin":
-        return adminNav;
+        baseNav = adminNav;
+        break;
+      case "secretary":
+        baseNav = secretaryNav;
+        break;
       case "professor":
-        return professorNav;
+        baseNav = professorNav;
+        break;
       case "student":
-        return studentNav;
+        baseNav = studentNav;
+        break;
       default:
-        return [];
+        baseNav = [];
     }
+
+    if (lateCount > 0 && (user.role === "admin" || user.role === "secretary")) {
+      return baseNav.map((sec) => ({
+        ...sec,
+        items: sec.items.map((item) =>
+          item.href === "/payments"
+            ? { ...item, badge: `${lateCount} retard${lateCount > 1 ? "s" : ""}` }
+            : item
+        ),
+      }));
+    }
+
+    return baseNav;
   };
 
   const sections = getNav();
-  const roleLabel = {
+  const roleLabel: Record<UserRole, string> = {
     admin: "Administrateur",
+    secretary: "Secrétaire",
     professor: "Professeur",
-    student: "Étudiant",
-  }[user.role];
+    student: "Élève",
+  };
 
-  const roleBadgeColor = {
+  const roleBadgeColor: Record<UserRole, string> = {
     admin: "bg-[#6d28d9]/10 text-[#6d28d9] border-[#6d28d9]/20",
+    secretary: "bg-emerald-50 text-emerald-700 border-emerald-200",
     professor: "bg-amber-50 text-amber-700 border-amber-200",
-    student: "bg-blue-50 text-blue-700 border-blue-200",
-  }[user.role];
+    student: "bg-[#6d28d9]/10 text-[#6d28d9] border-[#6d28d9]/20",
+  };
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -159,7 +224,7 @@ export function AppSidebar({
       <SidebarHeader className="border-b border-[#6d28d9]/5 px-3 py-3">
         <div className="flex items-center gap-3">
           <div className="relative flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-gradient-to-br from-[#6d28d9] to-[#8b5cf6] p-0.5 shadow-md shadow-[#6d28d9]/25">
-            <img src="/logo.png" alt="ITRI Academy" className="h-full w-full object-cover rounded-[14px]" />
+            <Image src="/logo.png" alt="ITRI Academy" width={44} height={44} className="h-full w-full object-cover rounded-[14px]" />
           </div>
 
           <div className="flex flex-col group-data-[collapsible=icon]:hidden min-w-0">
@@ -284,8 +349,8 @@ export function AppSidebar({
 
           <div className="flex flex-1 flex-col min-w-0 group-data-[collapsible=icon]:hidden">
             <span className="text-xs font-bold text-[#1a1a2e] truncate">{user.fullName}</span>
-            <span className={cn("inline-block w-fit rounded-md border px-1.5 py-0.5 text-[9px] font-extrabold uppercase tracking-wide", roleBadgeColor)}>
-              {roleLabel}
+            <span className={cn("inline-block w-fit rounded-md border px-1.5 py-0.5 text-[9px] font-extrabold uppercase tracking-wide", roleBadgeColor[user.role])}>
+              {roleLabel[user.role]}
             </span>
           </div>
 

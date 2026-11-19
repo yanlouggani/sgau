@@ -10,16 +10,29 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger
+} from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
 import {
   ArrowLeft, Clock, MapPin, Users, Loader2, CheckCircle2, XCircle,
-  AlertTriangle, PlayCircle, Square, ListRestart, Ban,
+  AlertTriangle, PlayCircle, Square, ListRestart, Ban, MessageCircle,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useMascot } from "@/components/mascot/MascotProvider";
+import { Mascot } from "@/components/mascot/Mascot";
 import { EmptyState, LoadingState } from "@/components/mascot/EmptyState";
 
-type Student = { id: string; name: string; status: string; avatar: string };
+type Student = {
+  id: string;
+  name: string;
+  status: string;
+  avatar: string;
+  hasLatePayment?: boolean;
+  parentName?: string;
+  parentPhone?: string;
+};
 type Session = {
   id: string; moduleName: string; groupName: string; roomName: string;
   starttime: string; endtime: string; status: string; sessiontype: string;
@@ -47,11 +60,24 @@ export default function SessionDetailPage() {
     try {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { setLoading(false); return; }
-    const { data: s } = await supabase
+
+    const { data: profile } = await supabase
+      .from("users")
+      .select("role")
+      .eq("id", user.id)
+      .maybeSingle();
+
+    let query = supabase
       .from("sessions")
       .select("*, modules(name), groups(name), rooms(name)")
-      .eq("professorid", user.id)
-      .eq("id", id).maybeSingle();
+      .eq("id", id);
+
+    // Les professeurs ne voient que leurs séances, mais admin et secrétaire ont accès à toutes les séances
+    if (profile?.role === "professor") {
+      query = query.eq("professorid", user.id);
+    }
+
+    const { data: s } = await query.maybeSingle();
     if (!s) { setUnauthorized(true); setLoading(false); return; }
     const m = s.modules as Record<string, unknown> | null;
     const g = s.groups as Record<string, unknown> | null;
@@ -67,6 +93,14 @@ export default function SessionDetailPage() {
       startedAt: s.startedat as string | undefined,
       closedAt: s.closedat as string | undefined,
     });
+
+    // Charger les alertes d'impayés pour les élèves
+    const { data: latePayments } = await supabase
+      .from("student_payments")
+      .select("student_id")
+      .in("status", ["late", "unpaid"]);
+    const lateSet = new Set((latePayments ?? []).map((lp: { student_id: string }) => lp.student_id));
+
     const isCM = s.sessiontype === "CM";
     if (!isCM) {
       if (!populatedRef.current) {
@@ -75,16 +109,20 @@ export default function SessionDetailPage() {
       }
       const attRows = (await supabase
         .from("attendance")
-        .select("*, students:users!attendance_studentid_fkey(firstname, lastname)")
+        .select("*, students:users!attendance_studentid_fkey(firstname, lastname, parent_name, parent_phone)")
         .eq("sessionid", id).order("studentid")).data as Record<string, unknown>[] | null;
       if (attRows && attRows.length > 0) {
         setStudents(attRows.map((a) => {
           const st = a.students as Record<string, unknown> | null;
+          const sId = a.studentid as string;
           return {
-            id: a.studentid as string,
-            name: st ? `${st.firstname ?? ""} ${st.lastname ?? ""}` : "",
+            id: sId,
+            name: st ? `${st.firstname ?? ""} ${st.lastname ?? ""}`.trim() : "Élève",
             avatar: ((st?.firstname as string)?.[0] ?? "").toUpperCase(),
             status: a.status as string,
+            hasLatePayment: lateSet.has(sId),
+            parentName: st?.parent_name as string | undefined,
+            parentPhone: st?.parent_phone as string | undefined,
           };
         }));
       } else {
@@ -92,17 +130,21 @@ export default function SessionDetailPage() {
         if (gId) {
           const { data: groupStudents } = await supabase
             .from("enrollments")
-            .select("studentid, users!inner(id, firstname, lastname)")
+            .select("studentid, users!inner(id, firstname, lastname, parent_name, parent_phone)")
             .eq("groupid", gId)
             .eq("status", "active");
           if (groupStudents) {
             setStudents(groupStudents.map((e: Record<string, unknown>) => {
               const u = e.users as Record<string, unknown> | null;
+              const sId = e.studentid as string;
               return {
-                id: e.studentid as string,
-                name: u ? `${u.firstname ?? ""} ${u.lastname ?? ""}`.trim() : "Inconnu",
+                id: sId,
+                name: u ? `${u.firstname ?? ""} ${u.lastname ?? ""}`.trim() : "Élève",
                 avatar: ((u?.firstname as string)?.[0] ?? "").toUpperCase(),
                 status: "unmarked",
+                hasLatePayment: lateSet.has(sId),
+                parentName: u?.parent_name as string | undefined,
+                parentPhone: u?.parent_phone as string | undefined,
               };
             }));
           }
@@ -115,7 +157,7 @@ export default function SessionDetailPage() {
       toast.error("Erreur chargement session", { description: String(err) });
     }
     setLoading(false);
-  }, [id]);
+  }, [id, supabase]);
 
   useEffect(() => {
     let mounted = true;
@@ -130,9 +172,16 @@ export default function SessionDetailPage() {
   const markAttendance = async (studentid: string, status: string): Promise<boolean> => {
     const prev = students.find((st) => st.id === studentid)?.status;
     setStudents((prevList) => prevList.map((st) => st.id === studentid ? { ...st, status } : st));
+
+    const { data: { user } } = await supabase.auth.getUser();
+    const { data: profile } = user
+      ? await supabase.from("users").select("role").eq("id", user.id).maybeSingle()
+      : { data: null };
+    const marker = profile?.role ?? "secretary";
+
     const { error } = await supabase.from("attendance").upsert({
       sessionid: id, studentid, status,
-      markedby: "professor", scanmethod: "manual", markedat: new Date().toISOString(),
+      markedby: marker, scanmethod: "manual", markedat: new Date().toISOString(),
     });
     if (error) {
       setStudents((prevList) => prevList.map((st) => st.id === studentid ? { ...st, status: prev ?? "unmarked" } : st));
@@ -148,6 +197,27 @@ export default function SessionDetailPage() {
     };
     const ok = await markAttendance(studentid, status);
     if (ok) mascot.show("validation", statusLabels[status] ?? "Marqué", "Présence enregistrée");
+  };
+
+const PHONE_PREFIX = "213"; // Algerian prefix by default
+
+  const sendWhatsAppAbsenceAlert = (student: Student) => {
+    const rawPhone = (student.parentPhone || "").replace(/[^0-9]/g, "");
+    let cleanPhone = rawPhone;
+    if (cleanPhone.startsWith("0")) {
+      cleanPhone = PHONE_PREFIX + cleanPhone.slice(1);
+    }
+    const stateStr = student.status === "late" ? "en retard" : "absent(e)";
+    const message = `Bonjour,\nCentre de soutien scolaire SGAU.\nNous vous informons que votre enfant ${student.name} est noté(e) ${stateStr} à la séance de ${session?.moduleName || "cours"} d'aujourd'hui (${session?.starttime?.slice(0, 5) || ""} - ${session?.endtime?.slice(0, 5) || ""}).\nMerci de contacter le secrétariat pour nous confirmer le motif.\nCordialement.`;
+
+    if (!cleanPhone) {
+      toast.info("Numéro parent non renseigné", {
+        description: "Ouverture de WhatsApp pour choisir le destinataire manuellement.",
+      });
+      window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, "_blank");
+      return;
+    }
+    window.open(`https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`, "_blank");
   };
 
   const handleBulk = async (status: string) => {
@@ -194,8 +264,16 @@ export default function SessionDetailPage() {
     setCancelling(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
-    if (!user) { toast.error("Non connecté"); return; }
-    const { error } = await supabase.from("sessions").update({ status: "CANCELLED" }).eq("id", id).eq("professorid", user.id);
+      if (!user) { toast.error("Non connecté"); return; }
+      
+      const { data: profile } = await supabase.from("users").select("role").eq("id", user.id).maybeSingle();
+      
+      let query = supabase.from("sessions").update({ status: "CANCELLED" }).eq("id", id);
+      if (profile?.role === "professor") {
+        query = query.eq("professorid", user.id);
+      }
+      
+      const { error } = await query;
       if (error) throw error;
       mascot.show("validation", "Séance annulée", "Le créneau a été retiré du planning.");
       setCancelOpen(false);
@@ -299,9 +377,23 @@ export default function SessionDetailPage() {
                   </>
                 )}
                 {marked > 0 && (
-                  <Button size="sm" variant="ghost" className="h-7 text-xs gap-1.5 text-muted-foreground" onClick={handleReset}>
-                    <ListRestart className="h-3.5 w-3.5" />Réinitialiser
-                  </Button>
+                  <AlertDialog>
+                    <AlertDialogTrigger>
+                      <Button size="sm" variant="ghost" className="h-7 text-xs gap-1.5 text-muted-foreground">
+                        <ListRestart className="h-3.5 w-3.5" />Réinitialiser
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Confirmer la réinitialisation</AlertDialogTitle>
+                        <AlertDialogDescription>Êtes-vous sûr de vouloir réinitialiser l&apos;appel ? Cette action est irréversible et supprimera tous les pointages effectués.</AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Annuler</AlertDialogCancel>
+                        <AlertDialogAction onClick={handleReset}>Confirmer</AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
                 )}
               </div>
             </div>
@@ -354,11 +446,30 @@ export default function SessionDetailPage() {
                     </AvatarFallback>
                   </Avatar>
                   <div className="min-w-0">
-                    <p className="text-sm font-medium truncate">{st.name}</p>
-                    <p className="text-xs text-muted-foreground">Étudiant</p>
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm font-medium truncate">{st.name}</p>
+                      {st.hasLatePayment && (
+                        <Badge className="bg-rose-500/15 text-rose-700 border-rose-500/30 text-[10px] gap-1 px-1.5 py-0 shrink-0">
+                          <AlertTriangle className="h-2.5 w-2.5" /> Impayé en retard
+                        </Badge>
+                      )}
+                    </div>
+                    <p className="text-xs text-muted-foreground">Élève</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-1.5 shrink-0">
+                  {(st.status === "absent" || st.status === "late") && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => sendWhatsAppAbsenceAlert(st)}
+                      className="h-7 px-2 text-xs font-bold text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 rounded-lg gap-1 border border-emerald-500/25"
+                      title="Alerter le parent par WhatsApp"
+                    >
+                      <MessageCircle className="h-3.5 w-3.5" />
+                      <span className="hidden sm:inline">WhatsApp Parent</span>
+                    </Button>
+                  )}
                   {canMark && (
                     <>
                       <StatusPill label="P" title="Présent" active={st.status === "present"} color="emerald"
@@ -381,20 +492,28 @@ export default function SessionDetailPage() {
       )}
 
       <Dialog open={cancelOpen} onOpenChange={setCancelOpen}>
-        <DialogContent className="sm:max-w-[400px]">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Ban className="h-5 w-5 text-destructive" />
-              Annuler la séance
-            </DialogTitle>
-            <DialogDescription>
-              <p><strong>{session.moduleName}</strong> — {session.starttime} à {session.endtime}</p>
-              <p className="text-sm text-muted-foreground mt-2">Cette action est irréversible.</p>
-            </DialogDescription>
+        <DialogContent className="sm:max-w-[420px] rounded-3xl p-6 border-[#6d28d9]/15">
+          <DialogHeader className="space-y-2">
+            <div className="flex items-center gap-3">
+              <Mascot pose="reflexion" size="sm" />
+              <div>
+                <DialogTitle className="text-lg font-bold text-[#1a1a2e]">
+                  Annuler la séance
+                </DialogTitle>
+                <DialogDescription className="text-xs text-[#64748b]">
+                  {session.moduleName} — {session.starttime} à {session.endtime}
+                </DialogDescription>
+              </div>
+            </div>
           </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setCancelOpen(false)}>Retour</Button>
-            <Button variant="destructive" onClick={handleCancel} disabled={cancelling}>
+
+          <p className="text-xs font-semibold text-rose-600 bg-rose-50 p-3 rounded-xl border border-rose-200">
+            ⚠️ Attention : Cette action est irréversible et annulera la séance planifiée.
+          </p>
+
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" onClick={() => setCancelOpen(false)} className="rounded-xl border-[#6d28d9]/20 font-bold">Retour</Button>
+            <Button variant="destructive" onClick={handleCancel} disabled={cancelling} className="rounded-xl font-bold">
               {cancelling && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Confirmer l&apos;annulation
             </Button>
@@ -417,6 +536,8 @@ function StatusPill({ label, title, active, color, onClick }: {
   return (
     <button
       title={title}
+      aria-label={title}
+      aria-pressed={active}
       onClick={onClick}
       className={cn(
         "inline-flex h-7 min-w-7 items-center justify-center rounded-md border text-xs font-medium transition-all cursor-pointer",

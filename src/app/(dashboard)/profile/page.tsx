@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Mail, Shield, UserCheck, User, CalendarDays } from "lucide-react";
+import { Mail, Shield, UserCheck, User, CalendarDays, ClipboardList } from "lucide-react";
 import { MascotHeader } from "@/components/mascot/MascotHeader";
 
 export default async function ProfilePage() {
@@ -26,13 +26,23 @@ export default async function ProfilePage() {
   const groupNames = [...new Set(enrollments?.map((e: Record<string, unknown>) => (e.groups as Record<string, unknown>)?.name as string) ?? [])];
 
   const initials = `${(profile.firstname?.[0] ?? "").toUpperCase()}${(profile.lastname?.[0] ?? "").toUpperCase()}`;
-  const roleLabel = profile.role === "admin" ? "Administrateur" : profile.role === "professor" ? "Professeur" : "Étudiant";
-  const RoleIcon = profile.role === "admin" ? Shield : profile.role === "professor" ? UserCheck : User;
-  const roleColor = profile.role === "admin"
-    ? "bg-[#6d28d9]/10 text-[#6d28d9]"
-    : profile.role === "professor"
-      ? "bg-[#f97316]/10 text-[#f97316]"
-      : "bg-[#0ea5e9]/10 text-[#0ea5e9]";
+  let roleLabel = "Étudiant";
+  let RoleIcon = User;
+  let roleColor = "bg-[#0ea5e9]/10 text-[#0ea5e9]";
+
+  if (profile.role === "admin") {
+    roleLabel = "Administrateur";
+    RoleIcon = Shield;
+    roleColor = "bg-[#6d28d9]/10 text-[#6d28d9]";
+  } else if (profile.role === "professor") {
+    roleLabel = "Professeur";
+    RoleIcon = UserCheck;
+    roleColor = "bg-[#f97316]/10 text-[#f97316]";
+  } else if (profile.role === "secretary") {
+    roleLabel = "Secrétaire";
+    RoleIcon = ClipboardList; // Note: needs to be imported
+    roleColor = "bg-emerald-50 text-emerald-700";
+  }
 
   return (
     <div className="mx-auto max-w-2xl space-y-6">

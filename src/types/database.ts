@@ -1,4 +1,4 @@
-export type UserRole = "admin" | "professor" | "student";
+export type UserRole = "admin" | "secretary" | "professor" | "student";
 
 export type AppUser = {
   id: string;
@@ -10,6 +10,12 @@ export type AppUser = {
   identifier?: string | null;
   fullName: string;
   initials: string;
+  payment_type?: "hourly" | "percentage" | null;
+  hourly_rate?: number | null;
+  percentage_rate?: number | null;
+  parent_name?: string | null;
+  parent_phone?: string | null;
+  billing_notes?: string | null;
 };
 
 export type Domain = {
@@ -21,9 +27,13 @@ export type Domain = {
 export type TrainingModule = {
   id: string;
   name: string;
-  domainid: string;
+  domainid?: string | null;
   domainName?: string;
   isactive: boolean;
+  price_per_session?: number | null;
+  monthly_price?: number | null;
+  level_name?: string | null;
+  category?: string | null;
 };
 
 export type UniversityModule = TrainingModule;
@@ -211,3 +221,65 @@ export type AttendanceRecord = {
   status: "present" | "absent" | "late" | "justified" | "unmarked";
   markedAt: string;
 };
+
+export type PaymentType = "hourly" | "percentage";
+export type PaymentStatus = "paid" | "partial" | "late" | "unpaid";
+export type PaymentMethod = "cash" | "baridimob" | "ccp" | "bank_transfer" | "check";
+
+export type StudentPayment = {
+  id: string;
+  student_id: string;
+  studentName?: string;
+  studentEmail?: string;
+  parentName?: string;
+  parentPhone?: string;
+  billing_period: string;
+  amount_due: number;
+  amount_paid: number;
+  due_date: string;
+  paid_at: string | null;
+  payment_method: PaymentMethod;
+  status: PaymentStatus;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type ProfessorPaymentBreakdown = {
+  sessions?: {
+    date: string;
+    startTime: string;
+    endTime: string;
+    moduleName: string;
+    groupName: string;
+    durationHours: number;
+  }[];
+  totalHours?: number;
+  studentCollections?: {
+    studentId: string;
+    studentName: string;
+    groupName: string;
+    amountPaid: number;
+  }[];
+  totalCollected?: number;
+  startDate?: string;
+  endDate?: string;
+  periodLabel?: string;
+};
+
+export type ProfessorPayment = {
+  id: string;
+  professor_id: string;
+  professorName?: string;
+  billing_period: string;
+  payment_type: PaymentType;
+  rate_applied: number;
+  base_calculation: ProfessorPaymentBreakdown;
+  total_amount: number;
+  status: "draft" | "validated" | "paid";
+  paid_at: string | null;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+};
+

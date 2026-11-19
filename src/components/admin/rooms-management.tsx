@@ -11,6 +11,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   Table,
   TableBody,
   TableCell,
@@ -75,6 +78,7 @@ export function RoomsManagement({
   const [search, setSearch] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingRoom, setEditingRoom] = useState<UniversityRoom | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState<UniversityRoom | null>(null);
   const [form, setForm] = useState<FormData>(emptyForm);
   const [saving, setSaving] = useState(false);
   const supabase = createClient();
@@ -136,18 +140,21 @@ export function RoomsManagement({
     setSaving(false);
   };
 
-  const handleDelete = async (room: UniversityRoom) => {
-    if (!confirm(`Supprimer la salle ${room.name} ?`)) return;
+  const handleDelete = async () => {
+    if (!deleteConfirm) return;
+    const room = deleteConfirm;
     try {
       const { data, error } = await supabase.from("rooms").delete().eq("id", room.id).select();
       if (error) throw error;
       if (!data || data.length === 0) throw new Error("Aucune ligne supprimée (vérifiez les permissions RLS)");
       setRooms((prev) => prev.filter((r) => r.id !== room.id));
       toast.success("Salle supprimée");
+      setDeleteConfirm(null);
     } catch (err) {
       const msg = String(err);
       if (msg.includes("foreign key")) toast.error("Impossible de supprimer cette salle : elle est utilisée dans des séances planifiées");
       else toast.error("Erreur", { description: msg });
+      setDeleteConfirm(null);
     }
   };
 
@@ -260,7 +267,7 @@ export function RoomsManagement({
                           </DropdownMenuItem>
                           <DropdownMenuItem
                             className="rounded-xl text-xs font-semibold text-rose-600 focus:bg-rose-50"
-                            onClick={() => handleDelete(room)}
+                            onClick={() => setDeleteConfirm(room)}
                           >
                             <Trash2 className="mr-2 h-4 w-4" />
                             Supprimer
@@ -334,6 +341,20 @@ export function RoomsManagement({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      <AlertDialog open={!!deleteConfirm} onOpenChange={(o: boolean) => !o && setDeleteConfirm(null)}>
+        <AlertDialogContent className="rounded-3xl">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Supprimer la salle ?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Êtes-vous sûr de vouloir supprimer "{deleteConfirm?.name}" ? Cette action est irréversible.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="rounded-xl">Annuler</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete} className="rounded-xl bg-rose-600 text-white hover:bg-rose-700">Supprimer</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

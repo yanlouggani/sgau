@@ -22,8 +22,12 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Search, Plus, MoreHorizontal, Edit, Trash2, Users, Loader2, BookOpen, Layers } from "lucide-react";
 import { toast } from "sonner";
-import { PageHeader } from "@/components/page-header";
-
+import { MascotHeader } from "@/components/mascot/MascotHeader";
+import { EmptyState } from "@/components/mascot/EmptyState";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Checkbox } from "@/components/ui/checkbox";
 type Group = {
   id: string; moduleId: string | null; moduleName: string | null;
   levelId: string | null; levelName: string | null;
@@ -39,6 +43,7 @@ export function GroupsManagement({ initialGroups, modules, levels }: {
   const [search, setSearch] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<Group | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState<Group | null>(null);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({ moduleId: "", levelId: "", name: "", isActive: true });
   const supabase = createClient();
@@ -87,18 +92,21 @@ export function GroupsManagement({ initialGroups, modules, levels }: {
     setSaving(false);
   };
 
-  const handleDelete = async (g: Group) => {
-    if (!confirm(`Supprimer le groupe "${g.name}" ?`)) return;
+  const handleDelete = async () => {
+    if (!deleteConfirm) return;
+    const g = deleteConfirm;
     try {
       const { data, error } = await supabase.from("groups").delete().eq("id", g.id).select();
       if (error) throw error;
       if (!data || data.length === 0) throw new Error("Aucune ligne supprimée (vérifiez les permissions RLS)");
       setGroups((prev) => prev.filter((x) => x.id !== g.id));
       toast.success("Groupe supprimé");
+      setDeleteConfirm(null);
     } catch (err) {
       const msg = String(err);
       if (msg.includes("foreign key")) toast.error("Impossible de supprimer ce groupe : il contient des inscriptions ou des séances");
       else toast.error("Erreur", { description: msg });
+      setDeleteConfirm(null);
     }
   };
 
@@ -108,17 +116,16 @@ export function GroupsManagement({ initialGroups, modules, levels }: {
 
   return (
     <div className="space-y-8 pb-10">
-      <PageHeader
+      <MascotHeader
         title="Groupes"
-        subtitle={`${groups.length} groupe(s) référencé(s)`}
-        icon={<Users className="h-5 w-5" />}
-        actions={
-          <Button onClick={openAdd} className="h-11 rounded-2xl bg-gradient-to-r from-[#6d28d9] to-[#8b5cf6] px-5 font-bold text-white shadow-md shadow-[#6d28d9]/20 hover:shadow-lg">
-            <Plus className="mr-2 h-4 w-4" />
-            Ajouter
-          </Button>
-        }
-      />
+        description={`${groups.length} groupe(s) référencé(s)`}
+        pose="bonjour"
+      >
+        <Button onClick={openAdd} className="h-11 rounded-2xl bg-gradient-to-r from-[#6d28d9] to-[#8b5cf6] px-5 font-bold text-white shadow-md shadow-[#6d28d9]/20 hover:shadow-lg">
+          <Plus className="mr-2 h-4 w-4" />
+          Ajouter
+        </Button>
+      </MascotHeader>
       <Card className="overflow-hidden rounded-3xl border border-[#6d28d9]/10 bg-white shadow-xs">
         <div className="border-b border-[#6d28d9]/5 p-5">
           <div className="relative max-w-md">
@@ -128,11 +135,11 @@ export function GroupsManagement({ initialGroups, modules, levels }: {
         </div>
         <CardContent className="p-0">
           {filtered.length === 0 ? (
-            <div className="flex flex-col items-center justify-center px-6 py-16 text-center">
-              <Users className="mb-3 h-10 w-10 text-[#6d28d9]/40" />
-              <p className="text-sm font-semibold text-[#1a1a2e]">Aucun groupe trouvé</p>
-              <p className="text-sm text-[#64748b]">Essayez d’ajuster vos critères de recherche.</p>
-            </div>
+            <EmptyState
+              pose="reflexion"
+              title="Aucun groupe trouvé"
+              hint="Essayez d'ajuster vos critères de recherche."
+            />
           ) : (
             <Table>
               <TableHeader className="bg-[#f8f9fc]">
@@ -175,7 +182,7 @@ export function GroupsManagement({ initialGroups, modules, levels }: {
                             <Edit className="mr-2 h-4 w-4 text-[#6d28d9]" />
                             Modifier
                           </DropdownMenuItem>
-                          <DropdownMenuItem className="rounded-xl text-xs font-semibold text-rose-600 focus:bg-rose-50" onClick={() => handleDelete(g)}>
+                          <DropdownMenuItem className="rounded-xl text-xs font-semibold text-rose-600 focus:bg-rose-50" onClick={() => setDeleteConfirm(g)}>
                             <Trash2 className="mr-2 h-4 w-4" />
                             Supprimer
                           </DropdownMenuItem>
@@ -206,15 +213,27 @@ export function GroupsManagement({ initialGroups, modules, levels }: {
               <div className="space-y-2">
                 <Label htmlFor="grp-module">Formation</Label>
                 <Select value={form.moduleId} onValueChange={(v) => { if (v) setForm({ ...form, moduleId: v }); }}>
-                  <SelectTrigger id="grp-module"><SelectValue placeholder="Sélectionner une formation">{(v: string) => modules.find(m => m.id === v)?.name ?? v}</SelectValue></SelectTrigger>
-                  <SelectContent>{modules.filter((m) => m.isActive).map((m) => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}</SelectContent>
+                  <SelectTrigger id="grp-module">
+                    <SelectValue placeholder="Sélectionner une formation">
+                      {modules.find((m) => m.id === form.moduleId)?.name}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    {modules.map((m) => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}
+                  </SelectContent>
                 </Select>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="grp-level">Niveau</Label>
                 <Select value={form.levelId} onValueChange={(v) => { if (v) setForm({ ...form, levelId: v }); }}>
-                  <SelectTrigger id="grp-level"><SelectValue placeholder="Sélectionner un niveau">{(v: string) => levels.find(l => l.id === v)?.name ?? v}</SelectValue></SelectTrigger>
-                  <SelectContent>{levels.filter((l) => l.isActive).map((l) => <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>)}</SelectContent>
+                  <SelectTrigger id="grp-level">
+                    <SelectValue placeholder="Sélectionner un niveau">
+                      {levels.find((l) => l.id === form.levelId)?.name}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    {levels.map((l) => <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>)}
+                  </SelectContent>
                 </Select>
               </div>
             </div>
@@ -228,7 +247,7 @@ export function GroupsManagement({ initialGroups, modules, levels }: {
               </div>
             </div>
             <div className="flex items-center gap-2 pt-2">
-              <input type="checkbox" id="grp-active" checked={form.isActive} onChange={(e) => setForm({ ...form, isActive: e.target.checked })} className="rounded" />
+              <Checkbox id="grp-active" checked={form.isActive} onCheckedChange={(c) => setForm({ ...form, isActive: c as boolean })} />
               <Label htmlFor="grp-active" className="text-sm font-normal">Groupe actif</Label>
             </div>
           </div>
@@ -240,6 +259,20 @@ export function GroupsManagement({ initialGroups, modules, levels }: {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      <AlertDialog open={!!deleteConfirm} onOpenChange={(o: boolean) => !o && setDeleteConfirm(null)}>
+        <AlertDialogContent className="rounded-3xl">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Supprimer le groupe ?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Êtes-vous sûr de vouloir supprimer "{deleteConfirm?.name}" ? Cette action est irréversible.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="rounded-xl">Annuler</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete} className="rounded-xl bg-rose-600 text-white hover:bg-rose-700">Supprimer</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

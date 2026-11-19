@@ -7,10 +7,11 @@ export default async function SchedulePage() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
   const { data: profile } = await supabase.from("users").select("role").eq("id", user.id).maybeSingle();
-  if (profile?.role !== "admin") redirect("/dashboard");
+  if (profile?.role !== "admin" && profile?.role !== "secretary") redirect("/dashboard");
 
   const { data: rooms } = await supabase.from("rooms").select("id, name").eq("isactive", true).order("name");
   const { data: groups } = await supabase.from("groups").select("id, name, moduleid, modules(name)").eq("isactive", true).order("name");
+  const { data: modules } = await supabase.from("modules").select("id, name").eq("isactive", true).order("name");
   const { data: professors } = await supabase
     .from("users")
     .select("id, firstname, lastname")
@@ -35,6 +36,7 @@ export default async function SchedulePage() {
       rooms={rooms ?? []}
       groups={formattedGroups}
       professors={professorsMapped}
+      modules={modules ?? []}
     />
   );
 }

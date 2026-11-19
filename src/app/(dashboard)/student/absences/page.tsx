@@ -4,35 +4,18 @@ import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase/browser";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import {
-  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
-} from "@/components/ui/dialog";
-import {
-  AlertTriangle, Clock, XCircle,
-  FileText, Loader2, GraduationCap,
-} from "lucide-react";
-import { toast } from "sonner";
-import { useMascot } from "@/components/mascot/MascotProvider";
+import { AlertTriangle, Clock, XCircle, GraduationCap } from "lucide-react";
 import { EmptyState, LoadingState } from "@/components/mascot/EmptyState";
 
 type Record_ = {
   id: string; sessionid: string; sessiondate: string; starttime: string;
   moduleName: string; status: string;
-  justificationstatus: string | null; justificationreason: string | null;
 };
 
 export default function StudentAbsencesPage() {
   const [records, setRecords] = useState<Record_[]>([]);
   const [loading, setLoading] = useState(true);
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [selectedRecord, setSelectedRecord] = useState<Record_ | null>(null);
-  const [reason, setReason] = useState("");
-  const [saving, setSaving] = useState(false);
   const supabase = createClient();
-  const mascot = useMascot();
 
   const load = async () => {
     const { data: { user } } = await supabase.auth.getUser();
@@ -55,9 +38,6 @@ export default function StudentAbsencesPage() {
           starttime: s.starttime as string,
           moduleName: ((s.modules as Record<string, unknown> | null)?.name as string) ?? "",
           status: a.status as string,
-          justificationstatus: (a.justificationstatus as string) ?? null,
-          justificationreason: (a.justificationreason as string) ?? null,
-          justificationfile: (a.justificationfile as string) ?? null,
         };
       }));
     }
@@ -75,41 +55,6 @@ export default function StudentAbsencesPage() {
     };
   }, [load]);
 
-  const openJustify = (r: Record_) => {
-    setSelectedRecord(r);
-    setReason(r.justificationreason ?? "");
-    setDialogOpen(true);
-  };
-
-  const handleSubmit = async () => {
-    if (!selectedRecord || !reason.trim()) return;
-    setSaving(true);
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) { toast.error("Non connecté"); return; }
-
-      const { error } = await supabase
-        .from("attendance")
-        .update({
-          justificationreason: reason.trim(),
-          justificationstatus: "PENDING",
-          justificationsubmittedat: new Date().toISOString(),
-        })
-        .eq("id", selectedRecord.id)
-        .eq("studentid", user.id)
-        .in("status", ["absent", "late"])
-        .is("justificationstatus", null)
-        .or("justificationstatus.eq.REJECTED");
-
-      if (error) throw error;
-
-      mascot.show("validation", "Justification soumise", "Elle sera examinée par votre administration.");
-      setDialogOpen(false);
-      load();
-    } catch (err) { toast.error("Erreur", { description: String(err) }); }
-    setSaving(false);
-  };
-
   const statusBadge = (status: string) => {
     switch (status) {
       case "absent": return <Badge className="bg-red-500/10 text-red-600 border-red-200 text-xs">Absent</Badge>;
@@ -119,19 +64,9 @@ export default function StudentAbsencesPage() {
     }
   };
 
-  const justifyBadge = (js: string | null) => {
-    switch (js) {
-      case "PENDING": return <Badge variant="outline" className="text-xs bg-amber-500/10 text-amber-600 border-amber-200">En attente</Badge>;
-      case "APPROVED": return <Badge variant="outline" className="text-xs bg-blue-500/10 text-blue-600 border-blue-200">Approuvée</Badge>;
-      case "REJECTED": return <Badge variant="outline" className="text-xs bg-red-500/10 text-red-600 border-red-200">Refusée</Badge>;
-      default: return null;
-    }
-  };
-
   const totalAbsences = records.filter((r) => r.status === "absent").length;
   const totalLate = records.filter((r) => r.status === "late").length;
   const totalJustified = records.filter((r) => r.status === "justified").length;
-  const pendingJustifications = records.filter((r) => r.justificationstatus === "PENDING").length;
 
   if (loading) return <LoadingState label="Chargement de vos absences..." />;
 
@@ -139,7 +74,7 @@ export default function StudentAbsencesPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Absences</h1>
-        <p className="text-muted-foreground">Absences, retards et justifications</p>
+        <p className="text-muted-foreground">Absences et retards</p>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-3">
@@ -164,7 +99,6 @@ export default function StudentAbsencesPage() {
           </CardHeader>
           <CardContent>
             <p className="text-3xl font-bold text-blue-600">{totalJustified}</p>
-            {pendingJustifications > 0 && <p className="text-xs text-amber-600 mt-1">{pendingJustifications} en attente</p>}
           </CardContent>
         </Card>
       </div>
@@ -190,8 +124,6 @@ export default function StudentAbsencesPage() {
                     <th className="text-left py-3 px-4 font-medium text-muted-foreground">Module</th>
                     <th className="text-left py-3 px-4 font-medium text-muted-foreground">Horaire</th>
                     <th className="text-left py-3 px-4 font-medium text-muted-foreground">Statut</th>
-                    <th className="text-left py-3 px-4 font-medium text-muted-foreground">Justification</th>
-                    <th className="w-12" />
                   </tr>
                 </thead>
                 <tbody>
@@ -206,18 +138,6 @@ export default function StudentAbsencesPage() {
                       </td>
                       <td className="py-3 px-4">{r.starttime ?? "—"}</td>
                       <td className="py-3 px-4">{statusBadge(r.status)}</td>
-                      <td className="py-3 px-4">
-                        <div className="flex items-center gap-1.5">
-                          {justifyBadge(r.justificationstatus) ?? <span className="text-xs text-muted-foreground">—</span>}
-                        </div>
-                      </td>
-                      <td className="py-3 px-4">
-                        {(r.status === "absent" || r.status === "late") && (!r.justificationstatus || r.justificationstatus === "REJECTED") && (
-                          <Button variant="outline" size="sm" className="h-7 text-xs gap-1" onClick={() => openJustify(r)}>
-                            <FileText className="h-3 w-3" />Justifier
-                          </Button>
-                        )}
-                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -226,39 +146,6 @@ export default function StudentAbsencesPage() {
           )}
         </CardContent>
       </Card>
-
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="sm:max-w-[500px]">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <FileText className="h-5 w-5 text-primary" />
-              Justifier une absence
-            </DialogTitle>
-            <DialogDescription>
-              {selectedRecord && `Séance du ${selectedRecord.sessiondate ? new Date(selectedRecord.sessiondate).toLocaleDateString("fr-FR") : "—"} — ${selectedRecord.moduleName}`}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="justify-reason">Motif de l&apos;absence</Label>
-              <Textarea
-                id="justify-reason"
-                value={reason}
-                onChange={(e) => setReason(e.target.value)}
-                rows={4}
-                placeholder="Décrivez la raison de votre absence (ex: motif médical, transport, etc.)"
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDialogOpen(false)}>Annuler</Button>
-            <Button onClick={handleSubmit} disabled={saving || !reason.trim()}>
-              {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Soumettre
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

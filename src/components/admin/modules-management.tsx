@@ -13,7 +13,7 @@ import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
@@ -22,7 +22,12 @@ import {
 } from "@/components/ui/select";
 import { Search, Plus, MoreHorizontal, Edit, Trash2, BookOpen, Loader2 } from "lucide-react";
 import { toast } from "sonner";
-import { PageHeader } from "@/components/page-header";
+import { MascotHeader } from "@/components/mascot/MascotHeader";
+import { EmptyState } from "@/components/mascot/EmptyState";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Checkbox } from "@/components/ui/checkbox";
 
 type Formation = { id: string; name: string; domainId: string; domainName?: string; isActive: boolean };
 type Domain = { id: string; name: string };
@@ -32,6 +37,7 @@ export function ModulesManagement({ initialModules, domains }: { initialModules:
   const [search, setSearch] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<Formation | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState<Formation | null>(null);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({ name: "", domainId: "", isActive: true });
   const supabase = createClient();
@@ -55,31 +61,34 @@ export function ModulesManagement({ initialModules, domains }: { initialModules:
         await supabase.from("modules").update({ name: form.name, domainId: form.domainId, isActive: form.isActive }).eq("id", editing.id);
         const domain = domains.find((d) => d.id === form.domainId);
         setModules((prev) => prev.map((m) => m.id === editing.id ? { ...m, name: form.name, domainId: form.domainId, domainName: domain?.name ?? m.domainName, isActive: form.isActive } : m));
-        toast.success("Formation mise à jour");
+        toast.success("Matière mise à jour");
       } else {
         const id = uuid();
         const domain = domains.find((d) => d.id === form.domainId);
         await supabase.from("modules").insert({ id, name: form.name, domainId: form.domainId, isActive: form.isActive });
         setModules((prev) => [{ id, name: form.name, domainId: form.domainId, domainName: domain?.name, isActive: form.isActive }, ...prev]);
-        toast.success("Formation créée");
+        toast.success("Matière créée");
       }
       setDialogOpen(false);
     } catch (err) { toast.error("Erreur", { description: String(err) }); }
     setSaving(false);
   };
 
-  const handleDelete = async (mod: Formation) => {
-    if (!confirm(`Supprimer la formation "${mod.name}" ?`)) return;
+  const handleDelete = async () => {
+    if (!deleteConfirm) return;
+    const mod = deleteConfirm;
     try {
       const { data, error } = await supabase.from("modules").delete().eq("id", mod.id).select();
       if (error) throw error;
       if (!data || data.length === 0) throw new Error("Aucune ligne supprimée (vérifiez les permissions RLS)");
       setModules((prev) => prev.filter((m) => m.id !== mod.id));
-      toast.success("Formation supprimée");
+      toast.success("Matière supprimée");
+      setDeleteConfirm(null);
     } catch (err) {
       const msg = String(err);
-      if (msg.includes("foreign key")) toast.error("Impossible de supprimer cette formation : elle est liée à des groupes ou des séances");
+      if (msg.includes("foreign key")) toast.error("Impossible de supprimer cette matière : elle est liée à des groupes ou des séances");
       else toast.error("Erreur", { description: msg });
+      setDeleteConfirm(null);
     }
   };
 
@@ -87,36 +96,35 @@ export function ModulesManagement({ initialModules, domains }: { initialModules:
 
   return (
     <div className="space-y-8 pb-10">
-      <PageHeader
-        title="Formations"
-        subtitle={`${modules.length} formation(s) référencée(s)`}
-        icon={<BookOpen className="h-5 w-5" />}
-        actions={
-          <Button onClick={openAdd} className="h-11 rounded-2xl bg-gradient-to-r from-[#6d28d9] to-[#8b5cf6] px-5 font-bold text-white shadow-md shadow-[#6d28d9]/20 hover:shadow-lg">
-            <Plus className="mr-2 h-4 w-4" />
-            Ajouter
-          </Button>
-        }
-      />
+      <MascotHeader
+        title="Matières"
+        description={`${modules.length} matière(s) référencée(s)`}
+        pose="bonjour"
+      >
+        <Button onClick={openAdd} className="h-11 rounded-2xl bg-gradient-to-r from-[#6d28d9] to-[#8b5cf6] px-5 font-bold text-white shadow-md shadow-[#6d28d9]/20 hover:shadow-lg">
+          <Plus className="mr-2 h-4 w-4" />
+          Ajouter
+        </Button>
+      </MascotHeader>
       <Card className="overflow-hidden rounded-3xl border border-[#6d28d9]/10 bg-white shadow-xs">
         <div className="border-b border-[#6d28d9]/5 p-5">
           <div className="relative max-w-md">
             <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[#6d28d9]" />
-            <Input placeholder="Rechercher une formation..." value={search} onChange={(e) => setSearch(e.target.value)} className="h-11 rounded-2xl border-[#6d28d9]/15 bg-[#f8f9fc] pl-10 text-xs font-semibold text-[#1a1a2e] focus:border-[#6d28d9] focus:bg-white" />
+            <Input placeholder="Rechercher une matière..." value={search} onChange={(e) => setSearch(e.target.value)} className="h-11 rounded-2xl border-[#6d28d9]/15 bg-[#f8f9fc] pl-10 text-xs font-semibold text-[#1a1a2e] focus:border-[#6d28d9] focus:bg-white" />
           </div>
         </div>
         <CardContent className="p-0">
           {filtered.length === 0 ? (
-            <div className="flex flex-col items-center justify-center px-6 py-16 text-center">
-              <BookOpen className="mb-3 h-10 w-10 text-[#6d28d9]/40" />
-              <p className="text-sm font-semibold text-[#1a1a2e]">Aucune formation trouvée</p>
-              <p className="text-sm text-[#64748b]">Essayez d’ajuster vos critères de recherche.</p>
-            </div>
+            <EmptyState
+              pose="reflexion"
+              title="Aucune matière trouvée"
+              hint="Essayez d'ajuster vos critères de recherche."
+            />
           ) : (
             <Table>
               <TableHeader className="bg-[#f8f9fc]">
                 <TableRow className="border-b border-[#6d28d9]/5 hover:bg-transparent">
-                  <TableHead className="py-4 text-xs font-extrabold uppercase tracking-wider text-[#6d28d9]">Formation</TableHead>
+                  <TableHead className="py-4 text-xs font-extrabold uppercase tracking-wider text-[#6d28d9]">Matière</TableHead>
                   <TableHead className="hidden py-4 text-xs font-extrabold uppercase tracking-wider text-[#6d28d9] sm:table-cell">Domaine</TableHead>
                   <TableHead className="py-4 text-xs font-extrabold uppercase tracking-wider text-[#6d28d9]">Statut</TableHead>
                   <TableHead className="w-16 py-4" />
@@ -154,7 +162,7 @@ export function ModulesManagement({ initialModules, domains }: { initialModules:
                             <Edit className="mr-2 h-4 w-4 text-[#6d28d9]" />
                             Modifier
                           </DropdownMenuItem>
-                          <DropdownMenuItem className="rounded-xl text-xs font-semibold text-rose-600 focus:bg-rose-50" onClick={() => handleDelete(mod)}>
+                          <DropdownMenuItem className="rounded-xl text-xs font-semibold text-rose-600 focus:bg-rose-50" onClick={() => setDeleteConfirm(mod)}>
                             <Trash2 className="mr-2 h-4 w-4" />
                             Supprimer
                           </DropdownMenuItem>
@@ -173,10 +181,10 @@ export function ModulesManagement({ initialModules, domains }: { initialModules:
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <BookOpen className="h-5 w-5 text-primary" />
-              {editing ? "Modifier la formation" : "Ajouter une formation"}
+              {editing ? "Modifier la matière" : "Ajouter une matière"}
             </DialogTitle>
             <DialogDescription>
-              {editing ? "Modifiez les informations de la formation." : "Créez une nouvelle formation rattachée à un domaine (ex: Langues, Informatique)."}
+              {editing ? "Modifiez les informations de la matière." : "Créez une nouvelle matière rattachée à un domaine (ex: Langues, Informatique)."}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-5 py-4">
@@ -200,8 +208,8 @@ export function ModulesManagement({ initialModules, domains }: { initialModules:
               </div>
             </div>
             <div className="flex items-center gap-2 pt-2">
-              <input type="checkbox" id="mod-active" checked={form.isActive} onChange={(e) => setForm({ ...form, isActive: e.target.checked })} className="rounded" />
-              <Label htmlFor="mod-active" className="text-sm font-normal">Formation active</Label>
+              <Checkbox id="mod-active" checked={form.isActive} onCheckedChange={(c) => setForm({ ...form, isActive: c as boolean })} />
+              <Label htmlFor="mod-active" className="text-sm font-normal">Matière active</Label>
             </div>
           </div>
           <DialogFooter>
@@ -212,6 +220,20 @@ export function ModulesManagement({ initialModules, domains }: { initialModules:
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      <AlertDialog open={!!deleteConfirm} onOpenChange={(o: boolean) => !o && setDeleteConfirm(null)}>
+        <AlertDialogContent className="rounded-3xl">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Supprimer la matière ?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Êtes-vous sûr de vouloir supprimer "{deleteConfirm?.name}" ? Cette action est irréversible.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="rounded-xl">Annuler</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete} className="rounded-xl bg-rose-600 text-white hover:bg-rose-700">Supprimer</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

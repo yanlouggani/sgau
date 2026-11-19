@@ -28,23 +28,35 @@ export default function ProfessorHistoryPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("");
+  const [page, setPage] = useState(0);
+  const [hasMore, setHasMore] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const supabase = createClient();
   const router = useRouter();
 
-  const load = useCallback(async () => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) { setLoading(false); return; }
+  const PAGE_SIZE = 50;
 
-      const { data } = await supabase
-        .from("sessions")
-        .select("*, modules(name), groups(name), rooms(name)")
-        .eq("professorid", user.id)
-        .order("sessiondate", { ascending: false })
-        .order("starttime", { ascending: false })
-        .limit(100);
+  const fetchPage = async (pageIndex: number) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return null;
+    const from = pageIndex * PAGE_SIZE;
+    const to = from + PAGE_SIZE - 1;
+    const { data } = await supabase
+      .from("sessions")
+      .select("*, modules(name), groups(name), rooms(name)")
+      .eq("professorid", user.id)
+      .order("sessiondate", { ascending: false })
+      .order("starttime", { ascending: false })
+      .range(from, to);
+    return data;
+  };
+
+  const loadInitial = useCallback(async () => {
+    setLoading(true);
+    try {
+      const data = await fetchPage(0);
       if (data) {
-        setSessions((data as Record<string, unknown>[]).map((s) => ({
+        const mapped = (data as Record<string, unknown>[]).map((s) => ({
           id: s.id as string,
           moduleName: ((s.modules as Record<string, unknown> | null)?.name as string) ?? "",
           groupName: ((s.groups as Record<string, unknown> | null)?.name as string) ?? "",
@@ -56,24 +68,57 @@ export default function ProfessorHistoryPage() {
           sessiontype: s.sessiontype as string,
           presentcount: (s.presentcount as number) ?? 0,
           totalstudents: (s.totalstudents as number) ?? 0,
-        })));
+        }));
+        setSessions(mapped);
+        setPage(0);
+        setHasMore(data.length === PAGE_SIZE);
       }
     } catch (err) {
       console.error("Erreur chargement historique", err);
     }
     setLoading(false);
-  }, []);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [supabase]);
+
+  const loadMore = async () => {
+    setLoadingMore(true);
+    try {
+      const next = page + 1;
+      const data = await fetchPage(next);
+      if (data) {
+        const mapped = (data as Record<string, unknown>[]).map((s) => ({
+          id: s.id as string,
+          moduleName: ((s.modules as Record<string, unknown> | null)?.name as string) ?? "",
+          groupName: ((s.groups as Record<string, unknown> | null)?.name as string) ?? "",
+          roomName: ((s.rooms as Record<string, unknown> | null)?.name as string) ?? "",
+          starttime: s.starttime as string,
+          endtime: s.endtime as string,
+          sessiondate: s.sessiondate as string,
+          status: s.status as string,
+          sessiontype: s.sessiontype as string,
+          presentcount: (s.presentcount as number) ?? 0,
+          totalstudents: (s.totalstudents as number) ?? 0,
+        }));
+        setSessions(prev => [...prev, ...mapped]);
+        setPage(next);
+        setHasMore(data.length === PAGE_SIZE);
+      }
+    } catch (err) {
+      console.error(err);
+    }
+    setLoadingMore(false);
+  };
 
   useEffect(() => {
     let active = true;
     void (async () => {
       if (!active) return;
-      await load();
+      await loadInitial();
     })();
     return () => {
       active = false;
     };
-  }, [load]);
+  }, [loadInitial]);
 
   const filtered = sessions.filter((s) => {
     if (search) {
@@ -188,6 +233,14 @@ export default function ProfessorHistoryPage() {
             </div>
           </section>
         ))
+      )}
+
+      {hasMore && filtered.length > 0 && search === "" && statusFilter === "" && (
+        <div className="flex justify-center pt-4 pb-8">
+          <Button variant="outline" onClick={loadMore} disabled={loadingMore} className="rounded-xl border-[#6d28d9]/20 text-[#6d28d9] font-bold">
+            {loadingMore ? "Chargement..." : "Charger plus"}
+          </Button>
+        </div>
       )}
     </div>
   );

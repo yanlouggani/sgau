@@ -2,7 +2,8 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
 const ROLE_ROUTES: Record<string, string[]> = {
-  admin: ["/admin", "/dashboard", "/domains", "/enrollments", "/groups", "/modules", "/profile", "/professors", "/rooms", "/schedule", "/sections", "/students", "/users"],
+  admin: ["/dashboard", "/admin", "/payments", "/modules", "/groups", "/rooms", "/schedule", "/students", "/professors", "/enrollments", "/domains", "/sections", "/users", "/profile"],
+  secretary: ["/secretary", "/dashboard", "/payments", "/students", "/groups", "/enrollments", "/schedule", "/rooms", "/profile"],
   professor: ["/professor", "/profile"],
   student: ["/student", "/profile"],
 };
@@ -36,10 +37,16 @@ export async function updateSession(request: NextRequest) {
   }
 
   if (user && request.nextUrl.pathname.startsWith("/login")) {
-    return NextResponse.redirect(new URL("/dashboard", request.url));
+    const { data: profile } = await supabase
+      .from("users")
+      .select("role")
+      .eq("id", user.id)
+      .maybeSingle();
+    const dashboard = profile?.role === "admin" ? "/dashboard" : profile?.role === "secretary" ? "/secretary/dashboard" : profile?.role === "professor" ? "/professor/dashboard" : "/student/dashboard";
+    return NextResponse.redirect(new URL(dashboard, request.url));
   }
 
-  if (user) {
+  if (user && !isPublicPage) {
     const { data: profile } = await supabase
       .from("users")
       .select("role")
@@ -50,10 +57,9 @@ export async function updateSession(request: NextRequest) {
     const allowedRoutes = profile ? ROLE_ROUTES[profile.role] ?? [] : [];
 
     const isAllowed = allowedRoutes.some((prefix) => path === prefix || path.startsWith(prefix + "/"));
-    const isNeutral = !path.startsWith("/admin") && !path.startsWith("/professor") && !path.startsWith("/student");
 
-    if (!isAllowed && !isNeutral) {
-      const dashboard = profile?.role === "admin" ? "/dashboard" : profile?.role === "professor" ? "/professor/dashboard" : "/student/dashboard";
+    if (!isAllowed) {
+      const dashboard = profile?.role === "admin" ? "/dashboard" : profile?.role === "secretary" ? "/secretary/dashboard" : profile?.role === "professor" ? "/professor/dashboard" : "/student/dashboard";
       return NextResponse.redirect(new URL(dashboard, request.url));
     }
   }

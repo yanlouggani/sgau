@@ -35,6 +35,7 @@ import {
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Search, Plus, MoreHorizontal, Edit, Trash2, Loader2, Shield, UserCheck } from "lucide-react";
 import { toast } from "sonner";
+import { createUserAction, updateUserAuthAction } from "@/lib/actions/admin-users";
 
 type AdminUser = {
   id: string;
@@ -99,6 +100,11 @@ export function AdminsManagement({ initialAdmins }: { initialAdmins: AdminUser[]
           isactive: form.isactive,
         };
         await supabase.from("users").update(upd).eq("id", editing.id);
+        
+        if (form.password) {
+          await updateUserAuthAction({ id: editing.id, password: form.password });
+        }
+
         setAdmins((prev) =>
           prev.map((a) =>
             a.id === editing.id
@@ -116,20 +122,19 @@ export function AdminsManagement({ initialAdmins }: { initialAdmins: AdminUser[]
         );
         toast.success("Administrateur mis à jour");
       } else {
-        const { error: signUpError, data } = await supabase.auth.signUp({
+        const { user: createdUser } = await createUserAction({
           email: form.email,
           password: form.password,
-          options: {
-            data: { firstname: form.firstname, lastname: form.lastname, role: "admin" },
-          },
+          firstname: form.firstname,
+          lastname: form.lastname,
+          role: "admin",
         });
-        if (signUpError) throw signUpError;
-        if (!data.user) throw new Error("Échec de la création");
-        await supabase.rpc("admin_finalize_user", { p_uid: data.user.id, p_group_id: null });
+        if (!createdUser) throw new Error("Échec de la création");
+
         const { data: newUser } = await supabase
           .from("users")
           .select("*")
-          .eq("id", data.user.id)
+          .eq("id", createdUser.id)
           .maybeSingle();
 
         if (newUser) {

@@ -43,6 +43,7 @@ export default function ProfessorDashboardPage() {
   const [actingId, setActingId] = useState<string | null>(null);
   const [closeTarget, setCloseTarget] = useState<SessionRow | null>(null);
   const [closing, setClosing] = useState(false);
+  const [noGroups, setNoGroups] = useState(false);
   const [now, setNow] = useState(new Date());
   const supabase = createClient();
   const router = useRouter();
@@ -66,6 +67,7 @@ export default function ProfessorDashboardPage() {
       const gids = (links ?? []).map((r: Record<string, unknown>) => r.groupid as string);
 
       if (gids.length === 0) {
+        setNoGroups(true);
         setLoading(false);
         return;
       }
@@ -132,7 +134,7 @@ export default function ProfessorDashboardPage() {
       if (!mounted) return;
       await load();
     })();
-    const i = setInterval(() => { if (mounted) void load(); }, 10000);
+    const i = setInterval(() => { if (mounted && !document.hidden) void load(); }, 10000);
     return () => { mounted = false; clearInterval(i); };
   }, [load]);
 
@@ -208,6 +210,14 @@ export default function ProfessorDashboardPage() {
   const attendanceRate = totalPossible > 0 ? Math.round((totalAttendance / totalPossible) * 100) : null;
 
   if (loading) return <LoadingState label="Chargement de votre journée..." />;
+  
+  if (noGroups) return (
+    <EmptyState
+      pose="reflexion"
+      title="Aucun groupe attribué"
+      hint="Aucun groupe ne vous est attribué. Contactez l'administration."
+    />
+  );
 
   return (
     <div className="space-y-6">
@@ -377,26 +387,33 @@ export default function ProfessorDashboardPage() {
       )}
 
       <Dialog open={!!closeTarget} onOpenChange={(o) => { if (!o) setCloseTarget(null); }}>
-        <DialogContent className="sm:max-w-[420px]">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Square className="h-5 w-5 text-[#f97316]" />
-              Clôturer la séance
-            </DialogTitle>
-            <DialogDescription>
-              {closeTarget && (
-                <div className="space-y-2">
-                  <p><strong>{closeTarget.moduleName}</strong> — {closeTarget.starttime} à {closeTarget.endtime}</p>
-                  <p className="text-sm text-[#64748b]">
-                    Présents : {closeTarget.presentcount} · Absents : {closeTarget.absentcount}
-                  </p>
-                </div>
-              )}
-            </DialogDescription>
+        <DialogContent className="sm:max-w-[440px] rounded-3xl p-6 border-[#6d28d9]/15">
+          <DialogHeader className="space-y-2">
+            <div className="flex items-center gap-3">
+              <Mascot pose="validation" size="sm" />
+              <div>
+                <DialogTitle className="text-lg font-bold text-[#1a1a2e]">
+                  Clôturer la séance
+                </DialogTitle>
+                <DialogDescription className="text-xs text-[#64748b]">
+                  {closeTarget && `${closeTarget.moduleName} — ${closeTarget.starttime} à ${closeTarget.endtime}`}
+                </DialogDescription>
+              </div>
+            </div>
           </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setCloseTarget(null)} className="rounded-lg">Annuler</Button>
-            <Button variant="destructive" onClick={handleClose} disabled={closing} className="rounded-lg">
+
+          {closeTarget && (
+            <div className="rounded-2xl bg-[#f8f9fc] p-4 border border-[#6d28d9]/10 space-y-1 my-2">
+              <p className="text-xs font-bold text-[#1a1a2e]">Résumé de l&apos;appel :</p>
+              <p className="text-xs text-[#64748b]">
+                <strong className="text-emerald-600 font-bold">{closeTarget.presentcount}</strong> présent(s) · <strong className="text-rose-600 font-bold">{closeTarget.absentcount}</strong> absent(s) sur {closeTarget.totalstudents} élève(s).
+              </p>
+            </div>
+          )}
+
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" onClick={() => setCloseTarget(null)} className="rounded-xl border-[#6d28d9]/20 font-bold">Annuler</Button>
+            <Button variant="destructive" onClick={handleClose} disabled={closing} className="rounded-xl font-bold">
               {closing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Confirmer la clôture
             </Button>
