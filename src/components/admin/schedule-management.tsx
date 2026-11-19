@@ -109,7 +109,7 @@ const DAYS = [
   { value: 6, label: "Sam" },
 ];
 
-const COLORS = ["#6d28d9", "#3b82f6", "#f59e0b", "#10b981", "#8b5cf6", "#ec4899", "#14b8a6"];
+const COLORS = ["#6d28d9", "#f97316", "#f59e0b", "#10b981", "#8b5cf6", "#ec4899", "#14b8a6"];
 
 type Room = { id: string; name: string };
 type GroupItem = { id: string; name: string; moduleid: string; moduleName: string };
@@ -1232,7 +1232,7 @@ export function ScheduleManagement({
                       setGroupSearch("");
                       setGroupSearchOpen(true);
                     }}
-                    className="absolute right-3 text-[#64748b] hover:text-[#1a1a2e]"
+                    className="absolute right-3 text-[#475569] hover:text-[#1a1a2e]"
                   >
                     <X className="h-4 w-4" />
                   </button>
@@ -1242,7 +1242,7 @@ export function ScheduleManagement({
               {groupSearchOpen && (
                 <div className="absolute left-0 right-0 top-full z-50 mt-2 max-h-[320px] overflow-auto rounded-2xl border border-[#6d28d9]/10 bg-white p-2 shadow-xl">
                   {filteredGroups.length === 0 ? (
-                    <div className="p-4 text-center text-xs font-medium text-[#64748b]">
+                    <div className="p-4 text-center text-xs font-semibold text-[#475569]">
                       Aucune classe trouvée
                     </div>
                   ) : (
@@ -1263,7 +1263,7 @@ export function ScheduleManagement({
                         <span>{g.name}</span>
                         <span
                           className={
-                            g.id === selectedGroupId ? "text-white/80" : "text-[#64748b]"
+                            g.id === selectedGroupId ? "text-white/80" : "text-[#475569]"
                           }
                         >
                           {" "}
@@ -1283,7 +1283,7 @@ export function ScheduleManagement({
                 className={`flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-bold transition-all ${
                   displayMode === "grid"
                     ? "bg-white text-[#6d28d9] shadow-xs"
-                    : "text-[#64748b] hover:text-[#1a1a2e]"
+                    : "text-[#475569] hover:text-[#1a1a2e]"
                 }`}
               >
                 <LayoutGrid className="h-3.5 w-3.5" />
@@ -1294,7 +1294,7 @@ export function ScheduleManagement({
                 className={`flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-bold transition-all ${
                   displayMode === "list"
                     ? "bg-white text-[#6d28d9] shadow-xs"
-                    : "text-[#64748b] hover:text-[#1a1a2e]"
+                    : "text-[#475569] hover:text-[#1a1a2e]"
                 }`}
               >
                 <ListFilter className="h-3.5 w-3.5" />
@@ -1422,7 +1422,7 @@ export function ScheduleManagement({
                                 }`}
                               >
                                 <span>{day.label}</span>
-                                <span className="ml-1.5 text-[#64748b]">{dateDisplay}</span>
+                                <span className="ml-1.5 text-[#475569]">{dateDisplay}</span>
                               </div>
                             </th>
                           );
@@ -1449,7 +1449,7 @@ export function ScheduleManagement({
                       ) : (
                         sortedSlots.map((slotItem) => (
                           <tr key={slotItem.id} className="border-t border-[#6d28d9]/5">
-                            <td className="sticky left-0 z-10 bg-white p-3 text-xs font-bold text-[#64748b]">
+                            <td className="sticky left-0 z-10 bg-white p-3 text-xs font-bold text-[#475569]">
                               <div className="inline-flex items-center gap-1.5 rounded-xl bg-[#f3f0ff] px-2.5 py-1 text-[#6d28d9]">
                                 <Clock className="h-3.5 w-3.5 shrink-0" />
                                 <span>{slotItem.label}</span>

@@ -322,7 +322,7 @@ export default function ProfessorTimetablePage() {
   const moduleColor = (moduleName: string) => {
     let hash = 0;
     for (let i = 0; i < moduleName.length; i++) hash = ((hash << 5) - hash) + moduleName.charCodeAt(i);
-    const colors = ["#3b82f6", "#f59e0b", "#10b981", "#8b5cf6", "#ec4899", "#14b8a6"];
+    const colors = ["#6d28d9", "#f97316", "#f59e0b", "#10b981", "#8b5cf6", "#ec4899", "#14b8a6"];
     return colors[Math.abs(hash) % colors.length];
   };
 
@@ -335,7 +335,7 @@ export default function ProfessorTimetablePage() {
       <div className="flex flex-col gap-4 rounded-3xl border border-[#6d28d9]/10 bg-white p-5 shadow-xs sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-xl font-extrabold text-[#1a1a2e]">Mon Emploi du Temps</h1>
-          <p className="text-xs font-semibold text-[#64748b] mt-0.5">
+          <p className="text-xs font-bold text-[#475569] mt-0.5">
             {occurrences.length} créneau{occurrences.length > 1 ? "x" : ""} hebdomadaire{occurrences.length > 1 ? "s" : ""}
             {sessions.length > 0 && ` · ${sessions.length} séance${sessions.length > 1 ? "s" : ""} cette semaine`}
           </p>
@@ -364,7 +364,7 @@ export default function ProfessorTimetablePage() {
 
       <div className="flex items-center gap-3 rounded-2xl border border-[#6d28d9]/15 bg-white p-4 shadow-xs">
         <Mascot pose="eureka" size="sm" animate={false} />
-        <p className="text-xs font-semibold text-[#64748b]">
+        <p className="text-xs font-semibold text-[#334155]">
           <strong className="text-[#6d28d9]">Astuce :</strong>{" "}
           cliquez sur un créneau pour valider la séance et saisir les présences des étudiants,
           ou ouvrez une séance existante pour la gérer.
@@ -392,7 +392,7 @@ export default function ProfessorTimetablePage() {
                       <th key={day.value} className="p-3 text-center border-r border-[#6d28d9]/10 last:border-r-0">
                         <div className={`inline-flex rounded-xl px-3.5 py-1 border ${isTodayDay ? "bg-[#6d28d9] text-white border-none shadow-xs font-extrabold" : "bg-white border-[#6d28d9]/10 text-[#1a1a2e] font-bold"}`}>
                           <span>{day.label}</span>
-                          <span className={`ml-1.5 ${isTodayDay ? "text-white/80" : "text-[#64748b]"}`}>{dateDisplay}</span>
+                          <span className={`ml-1.5 ${isTodayDay ? "text-white/80" : "text-[#475569]"}`}>{dateDisplay}</span>
                         </div>
                       </th>
                     );
@@ -402,14 +402,14 @@ export default function ProfessorTimetablePage() {
               <tbody>
                 {gridData.allStartTimes.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="p-10 text-center text-xs font-semibold text-[#64748b]">Aucune séance cette semaine</td>
+                    <td colSpan={8} className="p-10 text-center text-xs font-bold text-[#475569]">Aucune séance cette semaine</td>
                   </tr>
                 ) : (
                   gridData.allStartTimes.map((starttime) => {
                     const slot = gridData.timeSlotMap[starttime];
                     return (
                       <tr key={starttime} className="border-t border-[#6d28d9]/5">
-                        <td className="sticky left-0 z-10 bg-white p-3 text-xs font-bold text-[#64748b] border-r border-[#6d28d9]/10">
+                        <td className="sticky left-0 z-10 bg-white p-3 text-xs font-bold text-[#475569] border-r border-[#6d28d9]/10">
                           <div className="inline-flex items-center gap-1.5 rounded-xl bg-[#f3f0ff] px-2.5 py-1 text-[#6d28d9]">
                             <Clock className="h-3.5 w-3.5 shrink-0" />
                             <span>{slot?.label ?? starttime}</span>
@@ -441,16 +441,16 @@ export default function ProfessorTimetablePage() {
                               >
                                 <div className="space-y-1">
                                   <div className="flex items-start justify-between gap-1">
-                                    <span className={`text-xs font-extrabold text-[#1a1a2e] line-clamp-2 ${isCancelled ? "line-through text-[#64748b]" : ""}`}>
+                                    <span className={`text-xs font-extrabold text-[#1a1a2e] line-clamp-2 ${isCancelled ? "line-through text-[#475569]" : ""}`}>
                                       {item.moduleName}
                                     </span>
-                                    {isSession && <ExternalLink className="h-3 w-3 text-[#64748b]/50 shrink-0" />}
+                                    {isSession && <ExternalLink className="h-3 w-3 text-[#475569] shrink-0" />}
                                   </div>
-                                  <div className="flex items-center gap-1.5 text-[11px] font-semibold text-[#64748b]">
+                                  <div className="flex items-center gap-1.5 text-[11px] font-semibold text-[#475569]">
                                     <MapPin className="h-3.5 w-3.5 text-[#f97316] shrink-0" />
                                     <span className="truncate">{item.roomName}</span>
                                   </div>
-                                  <div className="flex items-center gap-1.5 text-[11px] font-semibold text-[#64748b]">
+                                  <div className="flex items-center gap-1.5 text-[11px] font-semibold text-[#475569]">
                                     <Users className="h-3.5 w-3.5 text-[#6d28d9] shrink-0" />
                                     <span className="truncate">{item.groupName}</span>
                                   </div>
@@ -493,7 +493,7 @@ export default function ProfessorTimetablePage() {
                     ? "Saisir les présences"
                     : "Détails du cours"}
                 </DialogTitle>
-                <DialogDescription className="text-xs text-[#64748b]">
+                <DialogDescription className="text-xs text-[#475569]">
                   {actionTarget && (
                     <>
                       <strong className="text-[#6d28d9]">{actionTarget.moduleName}</strong> — {actionTarget.starttime} à {actionTarget.endtime}
@@ -510,7 +510,7 @@ export default function ProfessorTimetablePage() {
 
           {actionTarget && !isTimePast(actionTarget.sessiondate, actionTarget.starttime) && (
             <div className="py-2">
-              <div className="flex gap-4 mb-4 text-sm text-[#64748b]">
+              <div className="flex gap-4 mb-4 text-sm font-semibold text-[#475569]">
                 <div className="flex items-center gap-1.5"><MapPin className="h-4 w-4 text-[#f97316]"/> {actionTarget.roomName}</div>
                 <div className="flex items-center gap-1.5"><Users className="h-4 w-4 text-[#6d28d9]"/> {actionTarget.groupName}</div>
               </div>

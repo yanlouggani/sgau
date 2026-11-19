@@ -25,7 +25,7 @@ export function PageHeader({
         )}
         <div className="min-w-0">
           <h1 className="text-2xl font-bold tracking-tight text-[#1a1a2e] truncate">{title}</h1>
-          {subtitle && <p className="text-sm text-[#64748b] truncate">{subtitle}</p>}
+          {subtitle && <p className="text-sm font-semibold text-[#334155] truncate">{subtitle}</p>}
         </div>
       </div>
       {actions && <div className="flex items-center gap-2 flex-wrap">{actions}</div>}

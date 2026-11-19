@@ -256,7 +256,7 @@ export function AppSidebar({
       <SidebarContent className="px-2 py-4">
         {sections.map((section, si) => (
           <SidebarGroup key={si} className="py-2">
-            <SidebarGroupLabel className="group-data-[collapsible=icon]:hidden px-2 text-[10px] font-extrabold uppercase tracking-widest text-[#64748b]/70">
+            <SidebarGroupLabel className="group-data-[collapsible=icon]:hidden px-2 text-[10px] font-black uppercase tracking-widest text-[#475569]">
               {section.label}
             </SidebarGroupLabel>
 
@@ -276,10 +276,10 @@ export function AppSidebar({
                           "relative group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold transition-all duration-200",
                           active
                             ? "bg-gradient-to-r from-[#6d28d9] to-[#8b5cf6] text-white shadow-md shadow-[#6d28d9]/20"
-                            : "text-[#475569] hover:bg-[#6d28d9]/5 hover:text-[#6d28d9]"
+                            : "text-[#334155] hover:bg-[#6d28d9]/5 hover:text-[#6d28d9]"
                         )}
                       >
-                        <Icon className={cn("h-4 w-4 shrink-0 transition-transform group-hover:scale-110", active ? "text-white" : "text-[#64748b] group-hover:text-[#6d28d9]")} />
+                        <Icon className={cn("h-4 w-4 shrink-0 transition-transform group-hover:scale-110", active ? "text-white" : "text-[#475569] group-hover:text-[#6d28d9]")} />
                         <span className="truncate group-data-[collapsible=icon]:hidden">{item.label}</span>
 
                         {item.badge && (
@@ -312,7 +312,7 @@ export function AppSidebar({
 
         {/* Profile Link */}
         <SidebarGroup>
-          <SidebarGroupLabel className="group-data-[collapsible=icon]:hidden px-2 text-[10px] font-extrabold uppercase tracking-widest text-[#64748b]/70">
+          <SidebarGroupLabel className="group-data-[collapsible=icon]:hidden px-2 text-[10px] font-black uppercase tracking-widest text-[#475569]">
             Mon Compte
           </SidebarGroupLabel>
           <SidebarGroupContent className="mt-1">
@@ -326,10 +326,10 @@ export function AppSidebar({
                     "relative group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold transition-all duration-200",
                     pathname === "/profile"
                       ? "bg-gradient-to-r from-[#6d28d9] to-[#8b5cf6] text-white shadow-md shadow-[#6d28d9]/20"
-                      : "text-[#475569] hover:bg-[#6d28d9]/5 hover:text-[#6d28d9]"
+                      : "text-[#334155] hover:bg-[#6d28d9]/5 hover:text-[#6d28d9]"
                   )}
                 >
-                  <User className={cn("h-4 w-4 shrink-0 transition-transform group-hover:scale-110", pathname === "/profile" ? "text-white" : "text-[#64748b] group-hover:text-[#6d28d9]")} />
+                  <User className={cn("h-4 w-4 shrink-0 transition-transform group-hover:scale-110", pathname === "/profile" ? "text-white" : "text-[#475569] group-hover:text-[#6d28d9]")} />
                   <span className="truncate group-data-[collapsible=icon]:hidden">Mon Profil</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
@@ -344,7 +344,7 @@ export function AppSidebar({
               <Mascot pose="eureka" size="xs" animate={true} />
               <div className="flex flex-col min-w-0">
                 <span className="text-[11px] font-bold text-[#1a1a2e]">Astuce SGA</span>
-                <span className="text-[10px] text-[#64748b] truncate">Gestion rapide & sécurisée</span>
+                <span className="text-[10px] font-medium text-[#475569] truncate">Gestion rapide & sécurisée</span>
               </div>
             </div>
           </div>
@@ -369,7 +369,7 @@ export function AppSidebar({
 
           <button
             onClick={handleLogout}
-            className="flex h-8 w-8 items-center justify-center rounded-xl text-[#64748b] transition-all hover:bg-rose-50 hover:text-rose-600 shrink-0 group-data-[collapsible=icon]:hidden"
+            className="flex h-8 w-8 items-center justify-center rounded-xl text-[#475569] transition-all hover:bg-rose-50 hover:text-rose-600 shrink-0 group-data-[collapsible=icon]:hidden"
             aria-label="Se déconnecter"
             title="Se déconnecter"
           >

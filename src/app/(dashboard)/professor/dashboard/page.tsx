@@ -223,12 +223,12 @@ export default function ProfessorDashboardPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <p className="text-sm text-[#64748b]">{DAYS[now.getDay()]} {now.toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" })}</p>
+          <p className="text-sm font-semibold text-[#475569]">{DAYS[now.getDay()]} {now.toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" })}</p>
           <h1 className="text-2xl font-bold tracking-tight mt-0.5 text-[#1a1a2e]">
             {now.getHours() < 12 ? "Bonjour" : now.getHours() < 18 ? "Bon après-midi" : "Bonsoir"}{profile ? `, ${profile.firstname}` : ""}
           </h1>
         </div>
-        <div className="hidden sm:flex items-center gap-2 text-sm text-[#64748b] bg-white rounded-xl px-4 py-2 border border-[#6d28d9]/10 shadow-sm">
+        <div className="hidden sm:flex items-center gap-2 text-sm font-bold text-[#475569] bg-white rounded-xl px-4 py-2 border border-[#6d28d9]/10 shadow-sm">
           <Mascot pose="bonjour" size="xs" animate={false} />
           <span>{todaySlots.length} créneau{todaySlots.length > 1 ? "x" : ""} aujourd&apos;hui</span>
         </div>
@@ -243,7 +243,7 @@ export default function ProfessorDashboardPage() {
                 ? `${completedWeek.length} séance(s) bouclée(s) cette semaine`
                 : "Votre semaine commence ici"}
             </p>
-            <p className="text-sm text-[#64748b]">
+            <p className="text-sm font-semibold text-[#334155]">
               {attendanceRate !== null
                 ? `Présence moyenne de ${attendanceRate}% sur ${totalAttendance}/${totalPossible} étudiants marqués.`
                 : "Démarrez vos séances pour remplir votre résumé hebdomadaire."}
@@ -252,7 +252,7 @@ export default function ProfessorDashboardPage() {
           {attendanceRate !== null && (
             <div className="flex flex-col items-center rounded-xl bg-white border border-[#6d28d9]/10 px-4 py-2">
               <span className="text-xl font-bold text-[#6d28d9]">{attendanceRate}%</span>
-              <span className="text-[10px] text-[#64748b]">présence</span>
+              <span className="text-[10px] font-bold text-[#475569]">présence</span>
             </div>
           )}
         </div>
@@ -331,7 +331,7 @@ export default function ProfessorDashboardPage() {
                     <GraduationCap className="h-4 w-4 text-[#6d28d9]" />
                     <h3 className="font-semibold text-sm text-[#1a1a2e]">{slot.moduleName}</h3>
                   </div>
-                  <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-[#64748b]">
+                  <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs font-semibold text-[#475569]">
                     <span className="flex items-center gap-1.5"><Clock className="h-3 w-3" />{slot.starttime} — {slot.endtime}</span>
                     <span className="flex items-center gap-1.5"><MapPin className="h-3 w-3" />{slot.roomName}</span>
                     <span className="flex items-center gap-1.5"><Users className="h-3 w-3" />{slot.groupName}</span>
@@ -351,8 +351,8 @@ export default function ProfessorDashboardPage() {
       {pastSessions.length > 0 && !active.length && !availableSlots.length && completedToday.length === 0 && (
         <section>
           <div className="flex items-center gap-2 mb-4">
-            <History className="h-4 w-4 text-[#64748b]" />
-            <h2 className="text-lg font-semibold text-[#64748b]">Séances récentes</h2>
+            <History className="h-4 w-4 text-[#334155]" />
+            <h2 className="text-lg font-bold text-[#1a1a2e]">Séances récentes</h2>
           </div>
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
             {pastSessions.map((s) => (
@@ -395,7 +395,7 @@ export default function ProfessorDashboardPage() {
                 <DialogTitle className="text-lg font-bold text-[#1a1a2e]">
                   Clôturer la séance
                 </DialogTitle>
-                <DialogDescription className="text-xs text-[#64748b]">
+                <DialogDescription className="text-xs font-semibold text-[#475569]">
                   {closeTarget && `${closeTarget.moduleName} — ${closeTarget.starttime} à ${closeTarget.endtime}`}
                 </DialogDescription>
               </div>
@@ -405,7 +405,7 @@ export default function ProfessorDashboardPage() {
           {closeTarget && (
             <div className="rounded-2xl bg-[#f8f9fc] p-4 border border-[#6d28d9]/10 space-y-1 my-2">
               <p className="text-xs font-bold text-[#1a1a2e]">Résumé de l&apos;appel :</p>
-              <p className="text-xs text-[#64748b]">
+              <p className="text-xs font-medium text-[#334155]">
                 <strong className="text-emerald-600 font-bold">{closeTarget.presentcount}</strong> présent(s) · <strong className="text-rose-600 font-bold">{closeTarget.absentcount}</strong> absent(s) sur {closeTarget.totalstudents} élève(s).
               </p>
             </div>
@@ -433,7 +433,7 @@ function StatCard({ icon, label, value, color, iconColor }: {
         <div className={`rounded-xl bg-gradient-to-br ${color} p-3 ${iconColor}`}>{icon}</div>
         <div>
           <p className="text-2xl font-bold text-[#1a1a2e]">{value}</p>
-          <p className="text-xs text-[#64748b]">{label}</p>
+          <p className="text-xs font-bold text-[#475569]">{label}</p>
         </div>
       </CardContent>
     </Card>
@@ -459,7 +459,7 @@ function SessionCard({ session, actions, muted, statusColor }: {
           </div>
           <SessionStatusBadge status={session.status} />
         </div>
-        <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-[#64748b]">
+        <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs font-semibold text-[#475569]">
           <span className="flex items-center gap-1.5"><Clock className="h-3 w-3" />{session.starttime} — {session.endtime}</span>
           <span className="flex items-center gap-1.5"><MapPin className="h-3 w-3" />{session.roomName}</span>
           <span className="flex items-center gap-1.5"><Users className="h-3 w-3" />{session.groupName}</span>
@@ -474,7 +474,7 @@ function SessionStatusBadge({ status }: { status: string }) {
   const key = status?.toLowerCase() ?? "";
   const styles: Record<string, string> = {
     active: "bg-[#f97316]/10 text-[#f97316] border-none",
-    scheduled: "bg-[#f8f9fc] text-[#64748b] border-none",
+    scheduled: "bg-[#f8f9fc] text-[#475569] font-bold border border-slate-200",
     completed: "bg-[#6d28d9]/10 text-[#6d28d9] border-none",
     cancelled: "bg-red-500/10 text-red-600 border-red-200",
   };

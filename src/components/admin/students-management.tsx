@@ -479,13 +479,13 @@ export function StudentsManagement({
                     <TableCell className="py-4">
                       <div className="flex items-center gap-3">
                         <Avatar className="h-10 w-10 shrink-0 rounded-2xl ring-2 ring-[#6d28d9]/20">
-                          <AvatarFallback className="bg-gradient-to-br from-blue-500 to-indigo-600 text-xs font-bold text-white">
+                          <AvatarFallback className="bg-gradient-to-br from-[#6d28d9] to-[#f97316] text-xs font-black text-white">
                             {s.initials}
                           </AvatarFallback>
                         </Avatar>
                         <div>
                           <p className="text-sm font-bold text-[#1a1a2e]">{s.fullName}</p>
-                          <p className="text-xs text-[#64748b]">{s.email}</p>
+                          <p className="text-xs font-semibold text-[#475569]">{s.email}</p>
                         </div>
                       </div>
                     </TableCell>
@@ -512,7 +512,7 @@ export function StudentsManagement({
                     <TableCell className="hidden py-4 md:table-cell">
                       <div className="flex flex-wrap gap-1.5">
                         {s.enrollments.length === 0 ? (
-                          <span className="text-xs text-[#64748b] italic">Aucune classe</span>
+                          <span className="text-xs text-[#475569] italic">Aucune classe</span>
                         ) : (
                           s.enrollments.map((e) => (
                             <Badge
@@ -562,7 +562,7 @@ export function StudentsManagement({
                               <Button
                                 variant="ghost"
                                 size="icon"
-                                className="h-8 w-8 rounded-xl text-[#64748b] hover:bg-[#6d28d9]/10 hover:text-[#6d28d9]"
+                                className="h-8 w-8 rounded-xl text-[#475569] hover:bg-[#6d28d9]/10 hover:text-[#6d28d9]"
                               >
                                 <MoreHorizontal className="h-4 w-4" />
                               </Button>
@@ -901,16 +901,16 @@ export function StudentsManagement({
                 className="w-full max-w-[380px] rounded-2xl border-2 border-slate-200 bg-white overflow-hidden shadow-md text-slate-800"
               >
                 {/* Bandeau supérieur de la carte */}
-                <div className="bg-gradient-to-r from-[#6d28d9] to-indigo-700 text-white p-3.5 flex items-center justify-between">
+                <div className="bg-gradient-to-r from-[#6d28d9] to-[#7c3aed] text-white p-3.5 flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <div className="h-7 w-7 rounded-lg bg-white/20 flex items-center justify-center font-black text-xs">
-                      SG
+                      ITRI
                     </div>
                     <div>
                       <h4 className="font-black text-xs uppercase tracking-wider">
-                        SGAU École de Soutien
+                        ITRI Academy
                       </h4>
-                      <p className="text-[9px] text-white/80">Carte d&apos;Élève • Cours Privés</p>
+                      <p className="text-[9px] text-white/80">Carte d&apos;Élève • Formation & Soutien</p>
                     </div>
                   </div>
                   <Badge className="bg-white/20 text-white border-none text-[9px] font-bold">
@@ -922,7 +922,7 @@ export function StudentsManagement({
                 <div className="p-4 space-y-3">
                   <div className="flex items-start gap-3">
                     <Avatar className="h-16 w-16 rounded-xl ring-2 ring-[#6d28d9]/30 shrink-0">
-                      <AvatarFallback className="bg-gradient-to-br from-indigo-500 to-purple-700 text-white font-black text-lg">
+                      <AvatarFallback className="bg-gradient-to-br from-[#6d28d9] to-[#f97316] text-white font-black text-lg">
                         {badgeStudent.initials}
                       </AvatarFallback>
                     </Avatar>

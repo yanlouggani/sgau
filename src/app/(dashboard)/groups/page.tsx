@@ -181,7 +181,7 @@ export default function GroupsPage() {
             <AlertTriangle className="h-5 w-5 text-[#f97316] shrink-0" />
             <div>
               <p className="text-sm font-medium text-[#f97316]">Erreur</p>
-              <p className="text-xs text-[#64748b]">{error}</p>
+              <p className="text-xs font-semibold text-[#475569]">{error}</p>
             </div>
             <Button variant="outline" size="sm" className="ml-auto" onClick={load}>Réessayer</Button>
           </CardContent>
@@ -228,7 +228,7 @@ export default function GroupsPage() {
                     <TableCell className="hidden py-4 md:table-cell">
                       {r.module_name
                         ? <Badge className="rounded-full bg-[#6d28d9]/10 text-xs font-semibold text-[#6d28d9] border-none"><BookOpen className="mr-1 h-3 w-3" />{r.module_name}</Badge>
-                        : <span className="text-xs text-[#64748b]">—</span>}
+                        : <span className="text-xs font-semibold text-[#475569]">—</span>}
                     </TableCell>
                     <TableCell className="py-4">
                       <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold ${r.isactive ? "bg-emerald-50 text-emerald-600" : "bg-amber-50 text-amber-600"}`}>
@@ -238,7 +238,7 @@ export default function GroupsPage() {
                     </TableCell>
                     <TableCell className="py-4">
                       <DropdownMenu>
-                        <DropdownMenuTrigger render={<Button variant="ghost" size="icon" className="h-8 w-8 rounded-xl text-[#64748b] hover:bg-[#6d28d9]/10 hover:text-[#6d28d9]"><MoreHorizontal className="h-4 w-4" /></Button>} />
+                        <DropdownMenuTrigger render={<Button variant="ghost" size="icon" className="h-8 w-8 rounded-xl text-[#475569] hover:bg-[#6d28d9]/10 hover:text-[#6d28d9]"><MoreHorizontal className="h-4 w-4" /></Button>} />
                         <DropdownMenuContent align="end" className="w-44 rounded-2xl p-1.5 shadow-xl">
                           <DropdownMenuItem onClick={() => openEdit(r)} className="rounded-xl text-xs font-semibold">
                             <Edit className="mr-2 h-4 w-4 text-[#6d28d9]" />
@@ -269,7 +269,7 @@ export default function GroupsPage() {
                 <DialogTitle className="text-lg font-bold text-[#1a1a2e]">
                   {editing ? "Modifier" : "Ajouter"} un groupe
                 </DialogTitle>
-                <DialogDescription className="text-xs text-[#64748b]">Rattachez le groupe à un domaine et une formation.</DialogDescription>
+                <DialogDescription className="text-xs text-[#475569]">Rattachez le groupe à un domaine et une formation.</DialogDescription>
               </div>
             </div>
           </DialogHeader>

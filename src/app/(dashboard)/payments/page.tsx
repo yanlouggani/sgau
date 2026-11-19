@@ -750,7 +750,7 @@ function PaymentsPageContent() {
                 />
                 {studentSearch.trim().length > 1 && matchingStudents.length > 0 && (
                   <div className="absolute top-full left-0 right-0 mt-1.5 z-40 bg-white rounded-2xl border border-[#6d28d9]/20 shadow-2xl overflow-hidden max-h-60 overflow-y-auto">
-                    <div className="px-3 py-1.5 bg-[#f8f9fc] border-b border-[#6d28d9]/10 text-[10px] font-bold text-[#64748b] uppercase tracking-wider">
+                    <div className="px-3 py-1.5 bg-[#f8f9fc] border-b border-[#6d28d9]/10 text-[10px] font-bold text-[#334155] uppercase tracking-wider">
                       Élèves correspondants ({matchingStudents.length})
                     </div>
                     {matchingStudents.slice(0, 6).map((s) => (
@@ -2236,14 +2236,14 @@ function PaymentsPageContent() {
                 <div>
                   <div className="flex items-center gap-2">
                     <div className="h-8 w-8 rounded-xl bg-[#6d28d9] flex items-center justify-center text-white font-black text-xs">
-                      SG
+                      ITRI
                     </div>
                     <div>
                       <h4 className="font-black text-[#1e1b4b] text-sm uppercase tracking-wide">
-                        SGAU École de Soutien
+                        ITRI Academy
                       </h4>
                       <p className="text-[10px] text-slate-500">
-                        Centre Pédagogique & Cours de Perfectionnement
+                        École de Langues et de Formation
                       </p>
                     </div>
                   </div>
@@ -2505,7 +2505,7 @@ export default function PaymentsPage() {
       fallback={
         <div className="p-12 flex flex-col items-center justify-center gap-3">
           <Loader2 className="h-8 w-8 animate-spin text-[#6d28d9]" />
-          <p className="text-sm font-semibold text-[#64748b]">
+          <p className="text-sm font-bold text-[#334155]">
             Chargement du module financier...
           </p>
         </div>

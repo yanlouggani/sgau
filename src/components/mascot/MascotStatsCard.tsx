@@ -39,7 +39,7 @@ export function MascotStatsCard({
     >
       <div className="flex items-start justify-between">
         <div className="space-y-1">
-          <p className="text-xs font-semibold uppercase tracking-wider text-[#64748b]">
+          <p className="text-xs font-bold uppercase tracking-wider text-[#334155]">
             {title}
           </p>
           <div className="flex items-baseline gap-2">
@@ -60,7 +60,7 @@ export function MascotStatsCard({
             )}
           </div>
           {subtitle && (
-            <p className="text-xs text-[#64748b]">{subtitle}</p>
+            <p className="text-xs font-semibold text-[#475569]">{subtitle}</p>
           )}
         </div>
 

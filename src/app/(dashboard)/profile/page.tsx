@@ -28,20 +28,20 @@ export default async function ProfilePage() {
   const initials = `${(profile.firstname?.[0] ?? "").toUpperCase()}${(profile.lastname?.[0] ?? "").toUpperCase()}`;
   let roleLabel = "Étudiant";
   let RoleIcon = User;
-  let roleColor = "bg-[#0ea5e9]/10 text-[#0ea5e9]";
+  let roleColor = "bg-purple-100 text-[#5b21b6] font-bold";
 
   if (profile.role === "admin") {
     roleLabel = "Administrateur";
     RoleIcon = Shield;
-    roleColor = "bg-[#6d28d9]/10 text-[#6d28d9]";
+    roleColor = "bg-[#6d28d9] text-white font-bold";
   } else if (profile.role === "professor") {
     roleLabel = "Professeur";
     RoleIcon = UserCheck;
-    roleColor = "bg-[#f97316]/10 text-[#f97316]";
+    roleColor = "bg-amber-100 text-amber-800 font-bold";
   } else if (profile.role === "secretary") {
     roleLabel = "Secrétaire";
     RoleIcon = ClipboardList; // Note: needs to be imported
-    roleColor = "bg-emerald-50 text-emerald-700";
+    roleColor = "bg-emerald-100 text-emerald-800 font-bold";
   }
 
   return (
@@ -73,8 +73,8 @@ export default async function ProfilePage() {
 
       <Card className="border border-[#6d28d9]/10 bg-white shadow-sm shadow-[#6d28d9]/5">
         <CardHeader>
-          <CardTitle className="text-base font-semibold text-[#1a1a2e]">Détails</CardTitle>
-          <CardDescription className="text-sm text-[#64748b]">Informations de votre compte</CardDescription>
+          <CardTitle className="text-base font-bold text-[#1a1a2e]">Détails</CardTitle>
+          <CardDescription className="text-sm font-semibold text-[#475569]">Informations de votre compte</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex items-center gap-3">
@@ -82,8 +82,8 @@ export default async function ProfilePage() {
               <Mail className="h-5 w-5 text-[#6d28d9]" />
             </div>
             <div>
-              <p className="text-sm text-[#64748b]">Email</p>
-              <p className="font-medium text-[#1a1a2e]">{profile.email}</p>
+              <p className="text-xs font-bold uppercase tracking-wider text-[#334155]">Email</p>
+              <p className="font-semibold text-[#1a1a2e]">{profile.email}</p>
             </div>
           </div>
           <div className="flex items-center gap-3">
@@ -91,8 +91,8 @@ export default async function ProfilePage() {
               <CalendarDays className="h-5 w-5 text-[#f97316]" />
             </div>
             <div>
-              <p className="text-sm text-[#64748b]">Membre depuis</p>
-              <p className="font-medium text-[#1a1a2e]">
+              <p className="text-xs font-bold uppercase tracking-wider text-[#334155]">Membre depuis</p>
+              <p className="font-semibold text-[#1a1a2e]">
                 {profile.createdat
                   ? new Date(profile.createdat).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" })
                   : "—"}
@@ -105,8 +105,8 @@ export default async function ProfilePage() {
                 <User className="h-5 w-5 text-[#6d28d9]" />
               </div>
               <div>
-                <p className="text-sm text-[#64748b]">Groupe(s)</p>
-                <p className="font-medium text-[#1a1a2e]">{groupNames.join(", ")}</p>
+                <p className="text-xs font-bold uppercase tracking-wider text-[#334155]">Groupe(s)</p>
+                <p className="font-semibold text-[#1a1a2e]">{groupNames.join(", ")}</p>
               </div>
             </div>
           )}

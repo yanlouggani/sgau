@@ -53,7 +53,7 @@ function DialogContent({
       <DialogPrimitive.Popup
         data-slot="dialog-content"
         className={cn(
-          "fixed top-1/2 left-1/2 z-50 grid w-full max-w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 gap-4 rounded-3xl border border-[#6d28d9]/20 bg-white dark:bg-slate-900 p-6 text-sm text-foreground shadow-2xl duration-150 outline-none sm:max-w-md data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95",
+          "fixed top-1/2 left-1/2 z-50 flex flex-col w-full max-w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 rounded-3xl border border-[#6d28d9]/25 bg-white p-6 sm:p-7 text-sm text-[#0f172a] shadow-2xl shadow-[#6d28d9]/15 duration-150 outline-none sm:max-w-md data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95",
           className
         )}
         {...props}
@@ -65,7 +65,7 @@ function DialogContent({
             render={
               <Button
                 variant="ghost"
-                className="absolute top-4 right-4 h-8 w-8 rounded-xl text-[#64748b] hover:bg-[#6d28d9]/10 hover:text-[#6d28d9]"
+                className="absolute top-4 right-4 h-8 w-8 rounded-xl text-[#475569] hover:bg-[#6d28d9]/10 hover:text-[#6d28d9]"
                 size="icon-sm"
               />
             }
@@ -83,7 +83,7 @@ function DialogHeader({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       data-slot="dialog-header"
-      className={cn("flex flex-col gap-1.5 border-b border-[#6d28d9]/10 pb-3", className)}
+      className={cn("flex flex-col gap-1 border-b border-[#6d28d9]/10 pb-3 mb-1", className)}
       {...props}
     />
   )
@@ -101,14 +101,14 @@ function DialogFooter({
     <div
       data-slot="dialog-footer"
       className={cn(
-        "-mx-6 -mb-6 mt-2 flex flex-col-reverse gap-2.5 rounded-b-3xl border-t border-[#6d28d9]/10 bg-[#f8f9fc] p-4 sm:flex-row sm:justify-end",
+        "mt-4 pt-4 border-t border-[#6d28d9]/10 flex items-center justify-end gap-2.5 w-full",
         className
       )}
       {...props}
     >
       {children}
       {showCloseButton && (
-        <DialogPrimitive.Close render={<Button variant="outline" className="h-10 rounded-xl border-[#6d28d9]/20 px-5 text-xs font-bold text-[#64748b]" />}>
+        <DialogPrimitive.Close render={<Button variant="outline" className="h-10 rounded-xl border-[#6d28d9]/20 px-5 text-xs font-bold text-[#475569] hover:text-[#6d28d9]" />}>
           Fermer
         </DialogPrimitive.Close>
       )}
@@ -121,7 +121,7 @@ function DialogTitle({ className, ...props }: DialogPrimitive.Title.Props) {
     <DialogPrimitive.Title
       data-slot="dialog-title"
       className={cn(
-        "font-heading text-lg font-bold text-[#1e1b4b] tracking-tight",
+        "font-heading text-lg font-black text-[#0f172a] tracking-tight",
         className
       )}
       {...props}
@@ -137,7 +137,7 @@ function DialogDescription({
     <DialogPrimitive.Description
       data-slot="dialog-description"
       className={cn(
-        "text-xs font-medium text-[#64748b] leading-relaxed",
+        "text-xs font-semibold text-[#475569] leading-relaxed",
         className
       )}
       {...props}

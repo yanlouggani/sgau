@@ -500,7 +500,7 @@ const PHONE_PREFIX = "213"; // Algerian prefix by default
                 <DialogTitle className="text-lg font-bold text-[#1a1a2e]">
                   Annuler la séance
                 </DialogTitle>
-                <DialogDescription className="text-xs text-[#64748b]">
+                <DialogDescription className="text-xs font-semibold text-[#475569]">
                   {session.moduleName} — {session.starttime} à {session.endtime}
                 </DialogDescription>
               </div>

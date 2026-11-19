@@ -373,20 +373,20 @@ export function EnrollmentsManagement({ initialEnrollments, students, groups }: 
                       </div>
                     </TableCell>
                     <TableCell className="py-4">
-                      <span className="text-xs font-semibold text-[#64748b]">{e.groupName ?? "—"}</span>
+                      <span className="text-xs font-semibold text-[#475569]">{e.groupName ?? "—"}</span>
                     </TableCell>
                     <TableCell className="hidden py-4 md:table-cell">
                       <Badge className="rounded-full bg-[#6d28d9]/10 text-xs font-semibold text-[#6d28d9] border-none">{e.moduleName ?? "—"}</Badge>
                     </TableCell>
                     <TableCell className="hidden py-4 sm:table-cell">{statusBadge(e.status)}</TableCell>
                     <TableCell className="hidden py-4 lg:table-cell">
-                      <span className="text-xs font-medium text-[#64748b]">
+                      <span className="text-xs font-medium text-[#475569]">
                         {new Date(e.enrolledat).toLocaleDateString("fr-FR")}
                       </span>
                     </TableCell>
                     <TableCell className="py-4">
                       <DropdownMenu>
-                        <DropdownMenuTrigger render={<Button variant="ghost" size="icon" className="h-8 w-8 rounded-xl text-[#64748b] hover:bg-[#6d28d9]/10 hover:text-[#6d28d9]"><MoreHorizontal className="h-4 w-4" /></Button>} />
+                        <DropdownMenuTrigger render={<Button variant="ghost" size="icon" className="h-8 w-8 rounded-xl text-[#475569] hover:bg-[#6d28d9]/10 hover:text-[#6d28d9]"><MoreHorizontal className="h-4 w-4" /></Button>} />
                         <DropdownMenuContent align="end" className="w-44 rounded-2xl p-1.5 shadow-xl">
                           <DropdownMenuItem onClick={() => openEdit(e)} className="rounded-xl text-xs font-semibold">
                             <Edit className="mr-2 h-4 w-4 text-[#6d28d9]" />
@@ -417,7 +417,7 @@ export function EnrollmentsManagement({ initialEnrollments, students, groups }: 
                 <DialogTitle className="text-lg font-bold text-[#1a1a2e]">
                   {editing ? "Modifier l'inscription" : "Ajouter une inscription"}
                 </DialogTitle>
-                <DialogDescription className="text-xs text-[#64748b]">
+                <DialogDescription className="text-xs text-[#475569]">
                   {editing ? "Modifiez les informations de l'inscription." : "Inscrivez un étudiant à un groupe de formation."}
                 </DialogDescription>
               </div>
@@ -453,7 +453,7 @@ export function EnrollmentsManagement({ initialEnrollments, students, groups }: 
                   {groups.map((g) => (
                     <SelectItem key={g.id} value={g.id}>
                       <span className="font-medium">{g.name}</span>
-                      <span className="text-[#64748b]"> — {g.moduleName}</span>
+                      <span className="text-[#475569]"> — {g.moduleName}</span>
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -518,7 +518,7 @@ export function EnrollmentsManagement({ initialEnrollments, students, groups }: 
                 <DialogTitle className="text-lg font-bold text-[#1a1a2e]">
                   Encaisser le Paiement Initial
                 </DialogTitle>
-                <DialogDescription className="text-xs text-[#64748b]">
+                <DialogDescription className="text-xs text-[#475569]">
                   L&apos;élève <strong className="text-[#6d28d9]">{paymentStudent?.fullName}</strong> vient d&apos;être inscrit dans <strong className="text-[#6d28d9]">{paymentGroup?.name}</strong>.
                 </DialogDescription>
               </div>

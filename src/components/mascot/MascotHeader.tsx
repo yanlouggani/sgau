@@ -53,7 +53,7 @@ export function MascotHeader({
               {title}
             </h1>
             {description && (
-              <p className="text-sm font-medium text-[#64748b] max-w-xl">
+              <p className="text-sm font-semibold text-[#334155] max-w-xl">
                 {description}
               </p>
             )}

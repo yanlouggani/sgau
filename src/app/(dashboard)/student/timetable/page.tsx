@@ -99,7 +99,7 @@ export default async function StudentTimetablePage() {
   const moduleColor = (moduleName: string) => {
     let hash = 0;
     for (let i = 0; i < moduleName.length; i++) hash = ((hash << 5) - hash) + moduleName.charCodeAt(i);
-    const colors = ["#3b82f6", "#f59e0b", "#10b981", "#8b5cf6", "#ec4899", "#14b8a6"];
+    const colors = ["#6d28d9", "#f97316", "#f59e0b", "#10b981", "#8b5cf6", "#ec4899", "#14b8a6"];
     return colors[Math.abs(hash) % colors.length];
   };
 
@@ -111,7 +111,7 @@ export default async function StudentTimetablePage() {
       <div className="flex flex-col gap-4 rounded-3xl border border-[#6d28d9]/10 bg-white p-5 shadow-xs sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-xl font-extrabold text-[#1a1a2e]">Mon Emploi du Temps</h1>
-          <p className="text-xs font-semibold text-[#64748b] mt-0.5">
+          <p className="text-xs font-bold text-[#475569] mt-0.5">
             {groupName || "Mon groupe"}
             {groupids.length === 0 && " — Aucun groupe assigné"}
           </p>
@@ -132,7 +132,7 @@ export default async function StudentTimetablePage() {
         <>
         <div className="flex items-center gap-3 rounded-2xl border border-[#6d28d9]/15 bg-white p-4 shadow-xs">
           <Mascot pose="eureka" size="sm" animate={false} />
-          <p className="text-xs font-semibold text-[#64748b]">
+          <p className="text-xs font-semibold text-[#334155]">
             <strong className="text-[#6d28d9]">Astuce :</strong>{" "}
             les créneaux colorés viennent de votre emploi du temps hebdomadaire.
             Retrouvez-y vos cours, salles et groupes de la semaine.
@@ -153,7 +153,7 @@ export default async function StudentTimetablePage() {
                       <th key={day.value} className="p-3 text-center border-r border-[#6d28d9]/10 last:border-r-0">
                         <div className={`inline-flex rounded-xl px-3.5 py-1 border ${isToday ? "bg-[#6d28d9] text-white border-none shadow-xs font-extrabold" : "bg-white border-[#6d28d9]/10 text-[#1a1a2e] font-bold"}`}>
                           <span>{day.label}</span>
-                          <span className={`ml-1.5 ${isToday ? "text-white/80" : "text-[#64748b]"}`}>{dateDisplay}</span>
+                          <span className={`ml-1.5 ${isToday ? "text-white/80" : "text-[#475569]"}`}>{dateDisplay}</span>
                         </div>
                       </th>
                     );
@@ -177,7 +177,7 @@ export default async function StudentTimetablePage() {
                     const slot = timeSlotMap[starttime];
                     return (
                       <tr key={starttime} className="border-t border-[#6d28d9]/5">
-                        <td className="sticky left-0 z-10 bg-white p-3 text-xs font-bold text-[#64748b] border-r border-[#6d28d9]/10">
+                        <td className="sticky left-0 z-10 bg-white p-3 text-xs font-bold text-[#475569] border-r border-[#6d28d9]/10">
                           <div className="inline-flex items-center gap-1.5 rounded-xl bg-[#f3f0ff] px-2.5 py-1 text-[#6d28d9]">
                             <Clock className="h-3.5 w-3.5 shrink-0" />
                             <span>{slot?.label ?? starttime}</span>
@@ -219,17 +219,17 @@ export default async function StudentTimetablePage() {
                               >
                                 <div className="space-y-1">
                                   <div className="flex items-start justify-between gap-1">
-                                    <span className={`text-xs font-extrabold text-[#1a1a2e] line-clamp-2 ${isCancelled ? "line-through text-[#64748b]" : ""}`}>
+                                    <span className={`text-xs font-extrabold text-[#1a1a2e] line-clamp-2 ${isCancelled ? "line-through text-[#475569]" : ""}`}>
                                       {mod}
                                     </span>
                                     {isCancelled && <Badge className="bg-red-500/10 text-red-600 text-[9px] font-extrabold border-none">Annulé</Badge>}
                                   </div>
-                                  <div className="flex items-center gap-1.5 text-[11px] font-semibold text-[#64748b]">
+                                  <div className="flex items-center gap-1.5 text-[11px] font-semibold text-[#475569]">
                                     <MapPin className="h-3.5 w-3.5 text-[#f97316] shrink-0" />
                                     <span className="truncate">{room}</span>
                                   </div>
                                   {grp && (
-                                    <div className="flex items-center gap-1.5 text-[11px] font-semibold text-[#64748b]">
+                                    <div className="flex items-center gap-1.5 text-[11px] font-semibold text-[#475569]">
                                       <Users className="h-3.5 w-3.5 text-[#6d28d9] shrink-0" />
                                       <span className="truncate">{grp}</span>
                                     </div>

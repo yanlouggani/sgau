@@ -176,7 +176,7 @@ export function SectionsManagement({ initialSections, levels }: { initialSection
                 <DialogTitle className="text-lg font-bold text-[#1a1a2e]">
                   {editing ? "Modifier la section" : "Ajouter une section"}
                 </DialogTitle>
-                <DialogDescription className="text-xs text-[#64748b]">
+                <DialogDescription className="text-xs text-[#475569]">
                   {editing ? "Modifiez les informations de la section." : "Créez une nouvelle section rattachée à un niveau (ex: Section A du L1-INFO)."}
                 </DialogDescription>
               </div>

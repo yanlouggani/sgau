@@ -399,7 +399,7 @@ export function ProfessorsManagement({
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="h-8 w-8 rounded-xl text-[#64748b] hover:bg-[#6d28d9]/10 hover:text-[#6d28d9]"
+                        className="h-8 w-8 rounded-xl text-[#475569] hover:bg-[#6d28d9]/10 hover:text-[#6d28d9]"
                       >
                         <MoreHorizontal className="h-4 w-4" />
                       </Button>
@@ -436,7 +436,7 @@ export function ProfessorsManagement({
                       <CardTitle className="text-sm font-bold text-[#1a1a2e]">
                         {prof.fullName}
                       </CardTitle>
-                      <p className="text-xs text-[#64748b]">{prof.email}</p>
+                      <p className="text-xs font-semibold text-[#475569]">{prof.email}</p>
                     </div>
                   </div>
                   <div className="rounded-xl bg-[#6d28d9]/10 p-2">
@@ -467,7 +467,7 @@ export function ProfessorsManagement({
                 {/* Groupes / Matières */}
                 <div className="flex flex-wrap gap-1.5 pt-1">
                   {assigned.length === 0 && (
-                    <span className="text-xs text-[#64748b]">Aucune classe assignée</span>
+                    <span className="text-xs font-semibold text-[#475569]">Aucune classe assignée</span>
                   )}
                   {assigned.slice(0, 3).map((g) => (
                     <Badge

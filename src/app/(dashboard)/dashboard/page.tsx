@@ -326,7 +326,7 @@ export default async function AdminDashboardPage() {
                 <p className="mt-3 text-lg font-bold text-[#1a1a2e]">
                   {stats.activeSessionsToday} cours actuellement en cours !
                 </p>
-                <p className="text-xs text-[#64748b] mt-1 max-w-sm">
+                <p className="text-xs text-[#334155] font-semibold mt-1 max-w-sm">
                   Les présences sont en cours d&apos;enregistrement par les enseignants.
                 </p>
               </div>
@@ -355,7 +355,7 @@ export default async function AdminDashboardPage() {
             <div className="space-y-6 py-2">
               <div className="space-y-2">
                 <div className="flex items-center justify-between text-sm">
-                  <span className="font-semibold text-[#64748b]">Étudiants</span>
+                  <span className="font-bold text-[#334155]">Étudiants</span>
                   <span className="font-bold text-[#1a1a2e]">
                     {stats.totalStudents} ({((stats.totalStudents / Math.max(stats.totalUsers, 1)) * 100).toFixed(0)}%)
                   </span>
@@ -372,7 +372,7 @@ export default async function AdminDashboardPage() {
 
               <div className="space-y-2">
                 <div className="flex items-center justify-between text-sm">
-                  <span className="font-semibold text-[#64748b]">Professeurs</span>
+                  <span className="font-bold text-[#334155]">Professeurs</span>
                   <span className="font-bold text-[#1a1a2e]">
                     {stats.totalProfessors} ({((stats.totalProfessors / Math.max(stats.totalUsers, 1)) * 100).toFixed(0)}%)
                   </span>
@@ -387,7 +387,7 @@ export default async function AdminDashboardPage() {
                 </div>
               </div>
 
-              <div className="pt-4 border-t border-[#6d28d9]/5 flex items-center justify-between text-xs text-[#64748b]">
+              <div className="pt-4 border-t border-[#6d28d9]/5 flex items-center justify-between text-xs text-[#334155]">
                 <div className="flex items-center gap-1.5 font-semibold">
                   <Sparkles className="h-4 w-4 text-[#f59e0b]" />
                   <span>{stats.totalModules} modules actifs</span>

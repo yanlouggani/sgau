@@ -41,7 +41,7 @@ function SelectTrigger({
       data-slot="select-trigger"
       data-size={size}
       className={cn(
-        "flex w-full items-center justify-between gap-2 rounded-xl border border-[#6d28d9]/15 bg-[#f8f9fc] px-3.5 py-2 text-xs font-semibold text-[#1a1a2e] transition-all outline-none select-none focus:border-[#6d28d9] focus:bg-white focus:ring-2 focus:ring-[#6d28d9]/20 disabled:cursor-not-allowed disabled:opacity-50 data-[size=default]:h-10 data-[size=sm]:h-8 *:data-[slot=select-value]:line-clamp-1 *:data-[slot=select-value]:flex *:data-[slot=select-value]:items-center *:data-[slot=select-value]:gap-1.5 [&_svg]:pointer-events-none [&_svg]:shrink-0",
+        "flex w-full items-center justify-between gap-2 rounded-xl border border-[#6d28d9]/20 bg-white px-3.5 py-2 text-xs font-semibold text-[#0f172a] shadow-xs transition-all outline-none select-none focus:border-[#6d28d9] focus:ring-2 focus:ring-[#6d28d9]/20 disabled:cursor-not-allowed disabled:opacity-50 data-[size=default]:h-10 data-[size=sm]:h-8 *:data-[slot=select-value]:line-clamp-1 *:data-[slot=select-value]:flex *:data-[slot=select-value]:items-center *:data-[slot=select-value]:gap-1.5 [&_svg]:pointer-events-none [&_svg]:shrink-0",
         className
       )}
       {...props}
@@ -102,7 +102,7 @@ function SelectLabel({
   return (
     <SelectPrimitive.GroupLabel
       data-slot="select-label"
-      className={cn("px-2 py-1.5 text-[11px] font-extrabold text-[#64748b]", className)}
+      className={cn("px-2 py-1.5 text-[11px] font-extrabold text-[#334155] uppercase tracking-wider", className)}
       {...props}
     />
   )

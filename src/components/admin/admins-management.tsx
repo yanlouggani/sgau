@@ -268,12 +268,12 @@ export function AdminsManagement({ initialAdmins }: { initialAdmins: AdminUser[]
                         </Avatar>
                         <div>
                           <p className="text-sm font-bold text-[#1a1a2e]">{a.fullName}</p>
-                          <p className="text-xs text-[#64748b] md:hidden">{a.email}</p>
+                          <p className="text-xs font-semibold text-[#475569] md:hidden">{a.email}</p>
                         </div>
                       </div>
                     </TableCell>
 
-                    <TableCell className="hidden py-4 text-xs font-semibold text-[#64748b] md:table-cell">
+                    <TableCell className="hidden py-4 text-xs font-semibold text-[#475569] md:table-cell">
                       {a.email}
                     </TableCell>
 
@@ -301,7 +301,7 @@ export function AdminsManagement({ initialAdmins }: { initialAdmins: AdminUser[]
                             <Button
                               variant="ghost"
                               size="icon"
-                              className="h-8 w-8 rounded-xl text-[#64748b] hover:bg-[#6d28d9]/10 hover:text-[#6d28d9]"
+                              className="h-8 w-8 rounded-xl text-[#475569] hover:bg-[#6d28d9]/10 hover:text-[#6d28d9]"
                             >
                               <MoreHorizontal className="h-4 w-4" />
                             </Button>
@@ -343,7 +343,7 @@ export function AdminsManagement({ initialAdmins }: { initialAdmins: AdminUser[]
                 <DialogTitle className="text-lg font-bold text-[#1a1a2e]">
                   {editing ? "Modifier l'administrateur" : "Nouveau compte administrateur"}
                 </DialogTitle>
-                <DialogDescription className="text-xs text-[#64748b]">
+                <DialogDescription className="text-xs text-[#475569]">
                   {editing
                     ? "Mise à jour des accès et informations personnelles."
                     : "Création d'un nouvel administrateur système."}

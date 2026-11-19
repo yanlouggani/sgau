@@ -200,7 +200,7 @@ export default function LandingPage() {
             </div>
             <div className="flex flex-col">
               <span className="text-base font-bold tracking-tight text-[#1a1a2e]">ITRI Academy</span>
-              <span className="text-[10px] text-[#64748b] tracking-wider uppercase">École de langues</span>
+              <span className="text-[10px] text-[#334155] tracking-wider uppercase">École de langues</span>
             </div>
           </motion.div>
 
@@ -214,7 +214,7 @@ export default function LandingPage() {
               <Link
                 key={item}
                 href={`#${item.toLowerCase() === "accueil" ? "hero" : item.toLowerCase() === "formations" ? "formations" : item.toLowerCase() === "à propos" ? "about" : "contact"}`}
-                className="text-sm text-[#64748b] px-4 py-2 rounded-lg font-medium transition-all hover:text-[#1a1a2e] hover:bg-[#6d28d9]/5"
+                className="text-sm text-[#334155] px-4 py-2 rounded-lg font-medium transition-all hover:text-[#1a1a2e] hover:bg-[#6d28d9]/5"
               >
                 {item}
               </Link>
@@ -251,7 +251,7 @@ export default function LandingPage() {
                     key={item}
                     href={`#${item.toLowerCase() === "accueil" ? "hero" : item.toLowerCase() === "formations" ? "formations" : item.toLowerCase() === "à propos" ? "about" : "contact"}`}
                     onClick={() => setMobileMenuOpen(false)}
-                    className="text-sm text-[#64748b] px-4 py-3 rounded-lg font-medium transition-all hover:text-[#1a1a2e] hover:bg-[#6d28d9]/5"
+                    className="text-sm text-[#334155] px-4 py-3 rounded-lg font-medium transition-all hover:text-[#1a1a2e] hover:bg-[#6d28d9]/5"
                   >
                     {item}
                   </Link>
@@ -300,7 +300,7 @@ export default function LandingPage() {
                   avec ITRI Academy
                 </motion.h1>
 
-                <motion.p variants={fadeUp} className="mb-8 text-base sm:text-lg text-[#64748b] max-w-lg leading-relaxed">
+                <motion.p variants={fadeUp} className="mb-8 text-base sm:text-lg text-[#334155] max-w-lg leading-relaxed">
                   Anglais, français, amazigh et informatique — des cours sur mesure pour enfants et adultes à Draâ El Borj, Bouira.
                 </motion.p>
 
@@ -360,16 +360,16 @@ export default function LandingPage() {
                     <div className="grid grid-cols-2 gap-4 mb-6">
                       <div className="text-center p-3 rounded-xl bg-[#6d28d9]/[0.04]">
                         <div className="text-2xl font-bold text-[#6d28d9]">5+</div>
-                        <div className="text-[10px] text-[#64748b] uppercase tracking-wider">Langues</div>
+                        <div className="text-[10px] text-[#334155] uppercase tracking-wider">Langues</div>
                       </div>
                       <div className="text-center p-3 rounded-xl bg-[#f97316]/[0.04]">
                         <div className="text-2xl font-bold text-[#f97316]">500+</div>
-                        <div className="text-[10px] text-[#64748b] uppercase tracking-wider">Élèves</div>
+                        <div className="text-[10px] text-[#334155] uppercase tracking-wider">Élèves</div>
                       </div>
                     </div>
                     <div className="space-y-3">
                       {["Formateurs qualifiés", "Groupes interactifs", "Suivi personnalisé", "Méthode immersive"].map((feat) => (
-                        <div key={feat} className="flex items-center gap-3 text-sm text-[#64748b]">
+                        <div key={feat} className="flex items-center gap-3 text-sm text-[#334155]">
                           <CheckCircle2 className="h-4 w-4 text-[#f97316] shrink-0" />
                           {feat}
                         </div>
@@ -398,7 +398,7 @@ export default function LandingPage() {
                     <stat.icon className="h-5 w-5 text-[#f97316]" />
                   </div>
                   <div className="text-3xl font-bold text-[#6d28d9]">{stat.value}</div>
-                  <div className="text-xs text-[#64748b] mt-1">{stat.label}</div>
+                  <div className="text-xs text-[#334155] mt-1">{stat.label}</div>
                 </motion.div>
               ))}
             </div>
@@ -429,19 +429,19 @@ export default function LandingPage() {
                     <div className="grid grid-cols-2 gap-3">
                       <div className="p-3 rounded-xl bg-[#f97316]/[0.06] text-center">
                         <div className="text-lg font-bold text-[#f97316]">500+</div>
-                        <div className="text-[10px] text-[#64748b]">Élèves formés</div>
+                        <div className="text-[10px] text-[#334155]">Élèves formés</div>
                       </div>
                       <div className="p-3 rounded-xl bg-[#6d28d9]/[0.06] text-center">
                         <div className="text-lg font-bold text-[#6d28d9]">15+</div>
-                        <div className="text-[10px] text-[#64748b]">Langues</div>
+                        <div className="text-[10px] text-[#334155]">Langues</div>
                       </div>
                       <div className="p-3 rounded-xl bg-[#f59e0b]/[0.06] text-center">
                         <div className="text-lg font-bold text-[#f59e0b]">50+</div>
-                        <div className="text-[10px] text-[#64748b]">Formateurs</div>
+                        <div className="text-[10px] text-[#334155]">Formateurs</div>
                       </div>
                       <div className="p-3 rounded-xl bg-[#f97316]/[0.06] text-center">
                         <div className="text-lg font-bold text-[#f97316]">98%</div>
-                        <div className="text-[10px] text-[#64748b]">Satisfaction</div>
+                        <div className="text-[10px] text-[#334155]">Satisfaction</div>
                       </div>
                     </div>
                   </div>
@@ -464,10 +464,10 @@ export default function LandingPage() {
                 <h2 className="mb-4 text-3xl sm:text-4xl font-bold tracking-tight text-[#1a1a2e]">
                   Un centre d&apos;<span className="text-gradient-itri">excellence</span> au cœur de Bouira
                 </h2>
-                <p className="text-[#64748b] leading-relaxed mb-4">
+                <p className="text-[#334155] leading-relaxed mb-4">
                   Située à Draâ El Borj, en face de la Pharmacie L. Rabia, ITRI Academy est un centre de formation linguistique et informatique moderne. Nous croyons que l&apos;apprentissage des langues ouvre des portes vers un avenir meilleur.
                 </p>
-                <p className="text-[#64748b] leading-relaxed mb-6">
+                <p className="text-[#334155] leading-relaxed mb-6">
                   Notre pédagogie allie rigueur académique et méthodes interactives, dans une ambiance bienveillante. Chaque élève bénéficie d&apos;un suivi personnalisé adapté à son rythme et à ses objectifs.
                 </p>
                 <div className="grid grid-cols-2 gap-3 mb-6">
@@ -509,7 +509,7 @@ export default function LandingPage() {
               <h2 className="mb-4 text-3xl sm:text-4xl font-bold tracking-tight text-[#1a1a2e]">
                 Des formations <span className="text-gradient-itri">pour tous</span>
               </h2>
-              <p className="text-[#64748b] max-w-xl mx-auto">
+              <p className="text-[#334155] max-w-xl mx-auto">
                 Du primaire à l&apos;adulte, du débutant à l&apos;avancé — trouvez la formation qui vous correspond.
               </p>
             </motion.div>
@@ -528,7 +528,7 @@ export default function LandingPage() {
                   <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-[#f97316] to-[#6d28d9] opacity-0 group-hover:opacity-100 transition-opacity" />
                   <div className="text-3xl mb-4">{f.icon}</div>
                   <h3 className="text-lg font-semibold text-[#1a1a2e] mb-1">{f.name}</h3>
-                  <p className="text-sm text-[#64748b] mb-3">{f.desc}</p>
+                  <p className="text-sm text-[#334155] mb-3">{f.desc}</p>
                   <span className="inline-block px-3 py-1 rounded-full bg-[#6d28d9]/[0.06] text-[11px] font-medium text-[#6d28d9]">
                     {f.levels}
                   </span>
@@ -553,7 +553,7 @@ export default function LandingPage() {
               <h2 className="mb-4 text-3xl sm:text-4xl font-bold tracking-tight text-[#1a1a2e]">
                 4 raisons de <span className="text-gradient-itri">nous faire confiance</span>
               </h2>
-              <p className="text-[#64748b] max-w-xl mx-auto">
+              <p className="text-[#334155] max-w-xl mx-auto">
                 Depuis notre ouverture, nous plaçons la qualité pédagogique et la satisfaction de nos élèves au cœur de notre mission.
               </p>
             </motion.div>
@@ -574,7 +574,7 @@ export default function LandingPage() {
                   </div>
                   <div>
                     <h3 className="text-base font-semibold text-[#1a1a2e] mb-1.5">{f.title}</h3>
-                    <p className="text-sm text-[#64748b] leading-relaxed">{f.desc}</p>
+                    <p className="text-sm text-[#334155] leading-relaxed">{f.desc}</p>
                   </div>
                 </motion.div>
               ))}
@@ -614,14 +614,14 @@ export default function LandingPage() {
                       <Star key={j} className="h-4 w-4 fill-[#f59e0b] text-[#f59e0b]" />
                     ))}
                   </div>
-                  <p className="text-sm text-[#64748b] leading-relaxed mb-5 italic">&quot;{t.text}&quot;</p>
+                  <p className="text-sm text-[#334155] leading-relaxed mb-5 italic">&quot;{t.text}&quot;</p>
                   <div className="flex items-center gap-3">
                     <div className="h-10 w-10 rounded-full bg-gradient-to-br from-[#f97316] to-[#6d28d9] flex items-center justify-center text-white text-sm font-bold">
                       {t.name[0]}
                     </div>
                     <div>
                       <div className="text-sm font-semibold text-[#1a1a2e]">{t.name}</div>
-                      <div className="text-xs text-[#64748b]">{t.role}</div>
+                      <div className="text-xs text-[#334155]">{t.role}</div>
                     </div>
                   </div>
                 </motion.div>
@@ -673,7 +673,7 @@ export default function LandingPage() {
                         transition={{ duration: 0.3 }}
                         className="overflow-hidden"
                       >
-                        <p className="px-5 pb-5 text-sm text-[#64748b] leading-relaxed">{item.a}</p>
+                        <p className="px-5 pb-5 text-sm text-[#334155] leading-relaxed">{item.a}</p>
                       </motion.div>
                     )}
                   </AnimatePresence>
@@ -698,7 +698,7 @@ export default function LandingPage() {
                 <h2 className="mb-4 text-3xl sm:text-4xl font-bold tracking-tight text-[#1a1a2e]">
                   Parlons de votre <span className="text-gradient-itri">formation</span>
                 </h2>
-                <p className="text-[#64748b] mb-8 leading-relaxed">
+                <p className="text-[#334155] mb-8 leading-relaxed">
                   N&apos;hésitez pas à nous contacter pour plus d&apos;informations sur nos formations et nos tarifs.
                 </p>
 
@@ -714,7 +714,7 @@ export default function LandingPage() {
                         <item.icon className="h-5 w-5" />
                       </div>
                       <div>
-                        <div className="text-xs text-[#64748b]">{item.label}</div>
+                        <div className="text-xs text-[#334155]">{item.label}</div>
                         <div className="text-sm font-medium text-[#1a1a2e]">{item.value}</div>
                       </div>
                     </div>
@@ -731,11 +731,11 @@ export default function LandingPage() {
               >
                 <div className="absolute top-0 left-[10%] right-[10%] h-[2px] bg-gradient-to-r from-transparent via-[#f97316] to-transparent" />
                 <h3 className="text-lg font-bold text-[#1a1a2e] mb-1">Envoyez-nous un message</h3>
-                <p className="text-sm text-[#64748b] mb-6">Nous vous répondrons dans les plus brefs délais.</p>
+                <p className="text-sm text-[#334155] mb-6">Nous vous répondrons dans les plus brefs délais.</p>
                 <form className="space-y-4" onSubmit={handleContactSubmit}>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-xs font-medium text-[#64748b] mb-1.5">Prénom *</label>
+                      <label className="block text-xs font-medium text-[#334155] mb-1.5">Prénom *</label>
                       <input
                         type="text"
                         value={contactForm.prenom}
@@ -746,7 +746,7 @@ export default function LandingPage() {
                       />
                     </div>
                     <div>
-                      <label className="block text-xs font-medium text-[#64748b] mb-1.5">Nom</label>
+                      <label className="block text-xs font-medium text-[#334155] mb-1.5">Nom</label>
                       <input
                         type="text"
                         value={contactForm.nom}
@@ -757,7 +757,7 @@ export default function LandingPage() {
                     </div>
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-[#64748b] mb-1.5">Email *</label>
+                    <label className="block text-xs font-medium text-[#334155] mb-1.5">Email *</label>
                     <input
                       type="email"
                       value={contactForm.email}
@@ -768,7 +768,7 @@ export default function LandingPage() {
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-[#64748b] mb-1.5">Formation souhaitée</label>
+                    <label className="block text-xs font-medium text-[#334155] mb-1.5">Formation souhaitée</label>
                     <select
                       value={contactForm.formation}
                       onChange={(e) => setContactForm((prev) => ({ ...prev, formation: e.target.value }))}
@@ -784,7 +784,7 @@ export default function LandingPage() {
                     </select>
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-[#64748b] mb-1.5">Message *</label>
+                    <label className="block text-xs font-medium text-[#334155] mb-1.5">Message *</label>
                     <textarea
                       rows={4}
                       value={contactForm.message}

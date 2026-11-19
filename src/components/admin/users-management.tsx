@@ -256,7 +256,7 @@ export function UsersManagement({
                       </Avatar>
                       <div>
                         <p className="text-sm font-bold text-[#1a1a2e] leading-none">{user.fullName}</p>
-                        <p className="text-xs text-[#64748b] mt-1">{user.email}</p>
+                        <p className="text-xs text-[#475569] mt-1 font-semibold">{user.email}</p>
                       </div>
                     </div>
                   </TableCell>
@@ -290,7 +290,7 @@ export function UsersManagement({
                     <DropdownMenu>
                       <DropdownMenuTrigger
                         render={
-                          <Button variant="ghost" size="icon" className="h-8 w-8 rounded-xl text-[#64748b] hover:bg-[#6d28d9]/10 hover:text-[#6d28d9]">
+                          <Button variant="ghost" size="icon" className="h-8 w-8 rounded-xl text-[#475569] hover:bg-[#6d28d9]/10 hover:text-[#6d28d9]">
                             <MoreHorizontal className="h-4 w-4" />
                           </Button>
                         }
@@ -326,7 +326,7 @@ export function UsersManagement({
                 <DialogTitle className="text-lg font-bold text-[#1a1a2e]">
                   {editingUser ? "Modifier l'utilisateur" : "Ajouter un utilisateur"}
                 </DialogTitle>
-                <DialogDescription className="text-xs text-[#64748b]">
+                <DialogDescription className="text-xs text-[#475569]">
                   {editingUser ? "Modifiez les informations ci-dessous." : "Remplissez les informations pour créer un nouveau compte."}
                 </DialogDescription>
               </div>

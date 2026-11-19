@@ -148,7 +148,7 @@ export default function ProfessorHistoryPage() {
 
       <div className="flex items-center gap-2 flex-wrap">
         <div className="relative flex-1 max-w-xs">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#64748b]" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#475569]" />
           <Input placeholder="Rechercher par module, groupe..." value={search}
             onChange={(e) => setSearch(e.target.value)} className="pl-9 h-9 text-sm border-[#6d28d9]/10" />
         </div>
@@ -173,7 +173,7 @@ export default function ProfessorHistoryPage() {
               <div className="rounded-lg bg-[#6d28d9]/10 p-1.5">
                 <CalendarDays className="h-4 w-4 text-[#6d28d9]" />
               </div>
-              <h2 className="text-sm font-semibold text-[#64748b]">
+              <h2 className="text-sm font-bold text-[#1a1a2e]">
                 {format(new Date(date + "T00:00:00"), "EEEE d MMMM yyyy", { locale: fr })}
               </h2>
               <Badge variant="secondary" className="text-[10px] font-mono bg-[#6d28d9]/10 text-[#6d28d9] border-none">{daySessions.length}</Badge>
@@ -185,7 +185,7 @@ export default function ProfessorHistoryPage() {
                   <div className={cn("h-0.5", {
                     "bg-[#f97316]": s.status?.toLowerCase() === "active",
                     "bg-[#6d28d9]": s.status?.toLowerCase() === "scheduled",
-                    "bg-[#64748b]/30": s.status?.toLowerCase() === "completed",
+                    "bg-slate-300": s.status?.toLowerCase() === "completed",
                     "bg-red-500": s.status?.toLowerCase() === "cancelled",
                   })} />
                   <CardContent className="p-4">
@@ -200,7 +200,7 @@ export default function ProfessorHistoryPage() {
                           <GraduationCap className={cn("h-4 w-4", {
                             "text-[#f97316]": s.status?.toLowerCase() === "active",
                             "text-[#6d28d9]": s.status?.toLowerCase() === "scheduled",
-                            "text-[#64748b]": s.status?.toLowerCase() === "completed",
+                            "text-[#475569]": s.status?.toLowerCase() === "completed",
                             "text-red-600": s.status?.toLowerCase() === "cancelled",
                           })} />
                         </div>
@@ -210,7 +210,7 @@ export default function ProfessorHistoryPage() {
                             <Badge variant="outline" className="text-[10px] font-mono shrink-0 border-[#6d28d9]/15">{s.sessiontype}</Badge>
                             <SessionLabel status={s.status} />
                           </div>
-                          <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-[#64748b] mt-0.5">
+                          <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-xs font-semibold text-[#475569] mt-0.5">
                             <span className="flex items-center gap-1"><Clock className="h-3 w-3" />{s.starttime}</span>
                             <span className="flex items-center gap-1"><MapPin className="h-3 w-3" />{s.roomName}</span>
                             <span className="flex items-center gap-1"><Users className="h-3 w-3" />{s.groupName}</span>
@@ -221,10 +221,10 @@ export default function ProfessorHistoryPage() {
                         {s.totalstudents > 0 && (
                           <div className="text-right hidden sm:block">
                             <p className="text-sm font-semibold tabular-nums text-[#1a1a2e]">{s.presentcount}</p>
-                            <p className="text-xs text-[#64748b] tabular-nums">/{s.totalstudents}</p>
+                            <p className="text-xs font-semibold text-[#475569] tabular-nums">/{s.totalstudents}</p>
                           </div>
                         )}
-                        <ChevronRight className="h-4 w-4 text-[#64748b]/40" />
+                        <ChevronRight className="h-4 w-4 text-[#475569]" />
                       </div>
                     </div>
                   </CardContent>
@@ -250,7 +250,7 @@ function SessionLabel({ status }: { status: string }) {
   const k = status?.toLowerCase() ?? "";
   const styles: Record<string, string> = {
     active: "bg-[#f97316]/10 text-[#f97316] border-none",
-    scheduled: "bg-[#f8f9fc] text-[#64748b] border-none",
+    scheduled: "bg-[#f8f9fc] text-[#475569] font-bold border border-slate-200",
     completed: "bg-[#6d28d9]/10 text-[#6d28d9] border-none",
     cancelled: "bg-red-500/10 text-red-600 border-red-200",
   };

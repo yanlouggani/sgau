@@ -156,7 +156,7 @@ export function ModulesManagement({ initialModules, domains }: { initialModules:
                     </TableCell>
                     <TableCell className="py-4">
                       <DropdownMenu>
-                        <DropdownMenuTrigger render={<Button variant="ghost" size="icon" className="h-8 w-8 rounded-xl text-[#64748b] hover:bg-[#6d28d9]/10 hover:text-[#6d28d9]"><MoreHorizontal className="h-4 w-4" /></Button>} />
+                        <DropdownMenuTrigger render={<Button variant="ghost" size="icon" className="h-8 w-8 rounded-xl text-[#475569] hover:bg-[#6d28d9]/10 hover:text-[#6d28d9]"><MoreHorizontal className="h-4 w-4" /></Button>} />
                         <DropdownMenuContent align="end" className="w-44 rounded-2xl p-1.5 shadow-xl">
                           <DropdownMenuItem onClick={() => openEdit(mod)} className="rounded-xl text-xs font-semibold">
                             <Edit className="mr-2 h-4 w-4 text-[#6d28d9]" />
@@ -189,7 +189,7 @@ export function ModulesManagement({ initialModules, domains }: { initialModules:
           </DialogHeader>
           <div className="space-y-5 py-4">
             <div className="space-y-4">
-              <h4 className="text-sm font-medium text-muted-foreground border-b pb-1">Informations</h4>
+              <h4 className="text-xs font-bold uppercase tracking-wider text-[#334155] border-b pb-1">Informations</h4>
               <div className="space-y-2">
                 <Label htmlFor="mod-name">Nom</Label>
                 <Input id="mod-name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Anglais technique" />
@@ -209,7 +209,7 @@ export function ModulesManagement({ initialModules, domains }: { initialModules:
             </div>
             <div className="flex items-center gap-2 pt-2">
               <Checkbox id="mod-active" checked={form.isActive} onCheckedChange={(c) => setForm({ ...form, isActive: c as boolean })} />
-              <Label htmlFor="mod-active" className="text-sm font-normal">Matière active</Label>
+              <Label htmlFor="mod-active" className="text-xs font-semibold text-[#0f172a]">Matière active</Label>
             </div>
           </div>
           <DialogFooter>

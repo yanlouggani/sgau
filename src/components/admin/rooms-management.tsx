@@ -219,7 +219,7 @@ export function RoomsManagement({
                         </div>
                         <div>
                           <p className="text-sm font-bold text-[#1a1a2e]">{room.name}</p>
-                          <p className="text-xs font-mono text-[#64748b] mt-0.5">{room.code}</p>
+                          <p className="text-xs font-mono text-[#475569] mt-0.5">{room.code}</p>
                         </div>
                       </div>
                     </TableCell>
@@ -241,7 +241,7 @@ export function RoomsManagement({
                           </span>
                         )}
                         {!room.hasprojector && !room.hascomputers && (
-                          <span className="text-xs text-[#64748b]">—</span>
+                          <span className="text-xs text-[#475569]">—</span>
                         )}
                       </div>
                     </TableCell>
@@ -255,7 +255,7 @@ export function RoomsManagement({
                       <DropdownMenu>
                         <DropdownMenuTrigger
                           render={
-                            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-xl text-[#64748b] hover:bg-[#6d28d9]/10 hover:text-[#6d28d9]">
+                            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-xl text-[#475569] hover:bg-[#6d28d9]/10 hover:text-[#6d28d9]">
                               <MoreHorizontal className="h-4 w-4" />
                             </Button>
                           }
@@ -293,7 +293,7 @@ export function RoomsManagement({
                 <DialogTitle className="text-lg font-bold text-[#1a1a2e]">
                   {editingRoom ? "Modifier la salle" : "Ajouter une salle"}
                 </DialogTitle>
-                <DialogDescription className="text-xs text-[#64748b]">
+                <DialogDescription className="text-xs text-[#475569]">
                   {editingRoom ? "Modifiez les informations de la salle." : "Remplissez les informations pour créer une nouvelle salle de cours."}
                 </DialogDescription>
               </div>

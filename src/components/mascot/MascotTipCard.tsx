@@ -33,7 +33,7 @@ export function MascotTipCard({
         <Mascot pose={pose} size="sm" animate={true} className="shrink-0" />
         <div className="flex-1 space-y-0.5">
           <h4 className="text-sm font-bold text-[#1a1a2e]">{title}</h4>
-          <p className="text-xs font-medium text-[#64748b] leading-relaxed">
+          <p className="text-xs font-semibold text-[#334155] leading-relaxed">
             {description}
           </p>
         </div>

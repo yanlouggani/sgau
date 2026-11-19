@@ -29,9 +29,9 @@ export function StudentQRCode({
       <div className="h-64 w-64 rounded-3xl border-2 border-[#6d28d9]/20 bg-white p-4 shadow-xl shadow-[#6d28d9]/5">
         <canvas ref={canvasRef} className="h-full w-full" />
       </div>
-      <div className="flex items-center gap-1.5 text-xs text-[#64748b]">
+      <div className="flex items-center gap-1.5 text-xs text-[#334155]">
         <ShieldCheck className="h-4 w-4 text-emerald-600" />
-        <span className="font-medium">Badge sécurisé (rotation automatique)</span>
+        <span className="font-bold">Badge sécurisé (rotation automatique)</span>
       </div>
     </div>
   );

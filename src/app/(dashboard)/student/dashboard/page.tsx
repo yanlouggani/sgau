@@ -92,7 +92,7 @@ export default async function StudentDashboardPage() {
       case "absent": return <Badge className="bg-red-500/10 text-red-600 border-none text-xs rounded-full">Absent</Badge>;
       case "late": return <Badge className="bg-amber-500/10 text-amber-600 border-none text-xs rounded-full">En retard</Badge>;
       case "justified": return <Badge className="bg-[#6d28d9]/10 text-[#6d28d9] border-none text-xs rounded-full">Justifié</Badge>;
-      default: return <Badge variant="outline" className="text-xs text-[#64748b] rounded-full">Non marqué</Badge>;
+      default: return <Badge variant="outline" className="text-xs text-[#475569] font-medium rounded-full">Non marqué</Badge>;
     }
   };
 
@@ -112,7 +112,7 @@ export default async function StudentDashboardPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-[#1a1a2e] capitalize">{dateStr}</h1>
-          <p className="text-sm text-[#64748b]">Bonjour, {profile.firstname}</p>
+          <p className="text-sm font-semibold text-[#475569]">Bonjour, {profile.firstname}</p>
         </div>
       </div>
 
@@ -127,7 +127,7 @@ export default async function StudentDashboardPage() {
                   ? "Parfait, vous êtes au top !"
                   : `${presentToday} séance(s) marquée(s) présente`}
             </p>
-            <p className="text-sm text-[#64748b]">
+            <p className="text-sm font-semibold text-[#334155]">
               {formattedSessions.length === 0
                 ? "Profitez de votre temps libre, ou consultez votre emploi du temps."
                 : presentToday === formattedSessions.length
@@ -137,7 +137,7 @@ export default async function StudentDashboardPage() {
           </div>
           <div className="hidden md:flex items-center gap-2 px-4 py-2 rounded-xl bg-white border border-[#6d28d9]/10 shadow-sm">
             <Mascot pose="eureka" size="xs" animate={false} />
-            <span className="text-xs text-[#64748b]">Restez assidu(e), ça compte !</span>
+            <span className="text-xs font-bold text-[#475569]">Restez assidu(e), ça compte !</span>
           </div>
         </div>
       </div>
@@ -145,28 +145,28 @@ export default async function StudentDashboardPage() {
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Card className="border border-[#6d28d9]/[0.06] bg-white hover:shadow-lg hover:shadow-[#6d28d9]/[0.04] transition-all">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-xs font-medium text-[#64748b]">Séances aujourd&apos;hui</CardTitle>
+            <CardTitle className="text-xs font-bold text-[#475569]">Séances aujourd&apos;hui</CardTitle>
             <div className="rounded-xl bg-[#6d28d9]/10 p-2 text-[#6d28d9]"><CalendarDays className="h-4 w-4" /></div>
           </CardHeader>
           <CardContent><p className="text-3xl font-bold text-[#1a1a2e]">{formattedSessions.length}</p></CardContent>
         </Card>
         <Card className="border border-[#6d28d9]/[0.06] bg-white hover:shadow-lg hover:shadow-[#6d28d9]/[0.04] transition-all">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-xs font-medium text-[#64748b]">Présent</CardTitle>
+            <CardTitle className="text-xs font-bold text-[#475569]">Présent</CardTitle>
             <div className="rounded-xl bg-emerald-500/10 p-2 text-emerald-600"><CheckCircle className="h-4 w-4" /></div>
           </CardHeader>
           <CardContent><p className="text-3xl font-bold text-emerald-600">{presentToday}</p></CardContent>
         </Card>
         <Card className="border border-[#6d28d9]/[0.06] bg-white hover:shadow-lg hover:shadow-[#6d28d9]/[0.04] transition-all">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-xs font-medium text-[#64748b]">Absences</CardTitle>
+            <CardTitle className="text-xs font-bold text-[#475569]">Absences</CardTitle>
             <div className="rounded-xl bg-red-500/10 p-2 text-red-600"><AlertTriangle className="h-4 w-4" /></div>
           </CardHeader>
           <CardContent><p className="text-3xl font-bold text-red-600">{totalAbsences}</p></CardContent>
         </Card>
         <Card className="border border-[#6d28d9]/[0.06] bg-white hover:shadow-lg hover:shadow-[#6d28d9]/[0.04] transition-all">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-xs font-medium text-[#64748b]">Groupe</CardTitle>
+            <CardTitle className="text-xs font-bold text-[#475569]">Groupe</CardTitle>
             <div className="rounded-xl bg-[#f59e0b]/10 p-2 text-[#f59e0b]"><GraduationCap className="h-4 w-4" /></div>
           </CardHeader>
           <CardContent>
@@ -203,7 +203,7 @@ export default async function StudentDashboardPage() {
                           <h3 className="font-semibold text-[#1a1a2e]">{session.moduleName}</h3>
                           <Badge variant="outline" className="text-[10px] rounded-full bg-[#6d28d9]/5 border-[#6d28d9]/10 text-[#6d28d9]">{session.sessiontype}</Badge>
                         </div>
-                        <div className="flex flex-wrap gap-4 text-sm text-[#64748b]">
+                        <div className="flex flex-wrap gap-4 text-sm font-semibold text-[#475569]">
                           <span className="flex items-center gap-1.5"><Clock className="h-3.5 w-3.5" />{session.starttime} — {session.endtime}</span>
                           <span className="flex items-center gap-1.5"><MapPin className="h-3.5 w-3.5" />{session.roomName}</span>
                         </div>
@@ -221,7 +221,7 @@ export default async function StudentDashboardPage() {
           {formattedSessions.length > 0 && (
             <div className="flex items-center justify-center gap-2 p-4 rounded-2xl bg-white border border-[#6d28d9]/10">
               <Mascot pose={presentToday === formattedSessions.length ? "celebration" : "bonjour"} size="sm" animate={false} />
-              <span className="text-sm text-[#64748b]">
+              <span className="text-sm font-medium text-[#334155]">
                 {presentToday === formattedSessions.length && formattedSessions.length > 0
                   ? <span className="font-semibold text-emerald-600">Parfait ! Vous êtes présent(e) à toutes vos séances aujourd&apos;hui.</span>
                   : `Vous êtes présent(e) à ${presentToday} séance(s) aujourd'hui`}
@@ -236,7 +236,7 @@ export default async function StudentDashboardPage() {
               <QrCode className="h-5 w-5 text-[#6d28d9]" />
               <h2 className="font-bold text-[#1a1a2e] text-sm">Mon Badge QR d&apos;Accès</h2>
             </div>
-            <p className="text-xs text-[#64748b] mb-4">
+            <p className="text-xs font-semibold text-[#475569] mb-4">
               Présentez ce QR Code à l&apos;entrée pour valider votre présence.
             </p>
             <StudentQRCode studentId={user.id} token={qrToken} />

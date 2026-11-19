@@ -268,7 +268,7 @@ export default function ProfessorAnalyticsPage() {
                     <div key={m.name} className="flex items-center gap-4 py-3 first:pt-0 last:pb-0">
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium text-[#1a1a2e] truncate">{m.name}</p>
-                        <p className="text-xs text-[#64748b]">{m.sessions} séance{m.sessions > 1 ? "s" : ""}</p>
+                        <p className="text-xs font-semibold text-[#475569]">{m.sessions} séance{m.sessions > 1 ? "s" : ""}</p>
                       </div>
                       <div className="flex items-center gap-4">
                         <div className="text-right">
@@ -276,7 +276,7 @@ export default function ProfessorAnalyticsPage() {
                             m.rate >= 80 ? "text-emerald-600" : m.rate >= 60 ? "text-amber-600" : "text-[#f97316]")}>
                             {m.rate}%
                           </p>
-                          <p className="text-xs text-[#64748b]">{m.present}/{m.total}</p>
+                          <p className="text-xs font-semibold text-[#475569]">{m.present}/{m.total}</p>
                         </div>
                         <div className="w-24 h-2 rounded-full bg-[#f8f9fc] overflow-hidden">
                           <div className={cn("h-full rounded-full transition-all",
@@ -305,7 +305,7 @@ function StatCard({ icon, label, value, color, iconColor }: {
         <div className={`rounded-xl bg-gradient-to-br ${color} p-3 ${iconColor}`}>{icon}</div>
         <div>
           <p className="text-2xl font-bold text-[#1a1a2e]">{value}</p>
-          <p className="text-xs text-[#64748b]">{label}</p>
+          <p className="text-xs font-bold text-[#475569]">{label}</p>
         </div>
       </CardContent>
     </Card>

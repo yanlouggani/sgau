@@ -106,7 +106,7 @@ export default function LoginPage() {
       >
         <Link
           href="/"
-          className="inline-flex items-center gap-1.5 text-sm text-[#64748b] transition-colors hover:text-[#6d28d9]"
+          className="inline-flex items-center gap-1.5 text-sm font-semibold text-[#334155] transition-colors hover:text-[#6d28d9]"
         >
           <ArrowLeft className="h-4 w-4" />
           Accueil
@@ -133,7 +133,7 @@ export default function LoginPage() {
           </motion.div>
           <div>
             <h1 className="text-xl font-bold tracking-tight text-[#1a1a2e]">ITRI Academy</h1>
-            <p className="text-sm text-[#64748b]">École de Langues et de Formation</p>
+            <p className="text-sm font-semibold text-[#334155]">École de Langues et de Formation</p>
           </div>
         </motion.div>
 
@@ -146,7 +146,7 @@ export default function LoginPage() {
             <div className="absolute top-0 left-[10%] right-[10%] h-[2px] bg-gradient-to-r from-transparent via-[#f97316] to-transparent" />
             <CardHeader className="text-center">
               <CardTitle className="text-lg font-bold text-[#1a1a2e]">Connexion</CardTitle>
-              <CardDescription className="text-[#64748b]">Connectez-vous à votre espace</CardDescription>
+              <CardDescription className="text-xs font-semibold text-[#475569]">Connectez-vous à votre espace</CardDescription>
             </CardHeader>
             <CardContent>
               <motion.form
@@ -160,7 +160,7 @@ export default function LoginPage() {
                 className="space-y-4"
               >
                 <motion.div variants={itemVariants} className="space-y-1.5">
-                  <Label htmlFor="email" className="text-xs font-medium text-[#64748b]">Email</Label>
+                  <Label htmlFor="email" className="text-xs font-bold text-[#0f172a]">Email</Label>
                   <Input
                     id="email"
                     type="email"
@@ -174,7 +174,7 @@ export default function LoginPage() {
                 </motion.div>
                 <motion.div variants={itemVariants} className="space-y-1.5">
                   <div className="flex items-center justify-between">
-                    <Label htmlFor="password" className="text-xs font-medium text-[#64748b]">Mot de passe</Label>
+                    <Label htmlFor="password" className="text-xs font-bold text-[#0f172a]">Mot de passe</Label>
                     <button
                       type="button"
                       onClick={handleForgotPassword}
@@ -197,7 +197,7 @@ export default function LoginPage() {
                     <button
                       type="button"
                       onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-[#64748b] transition-colors hover:text-[#6d28d9]"
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-[#475569] transition-colors hover:text-[#6d28d9]"
                       tabIndex={-1}
                     >
                       {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
@@ -249,7 +249,7 @@ export default function LoginPage() {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.7 }}
-          className="text-center text-xs text-[#64748b]"
+          className="text-center text-xs font-semibold text-[#475569]"
         >
           &copy; {new Date().getFullYear()} ITRI Academy — Tous droits réservés
         </motion.p>
